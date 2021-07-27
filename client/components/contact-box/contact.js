@@ -13,7 +13,7 @@ export default class Contact extends React.Component {
   render() {
     const {contactPage, language, orgSlug, isAuthenticated, userData} =
       this.props;
-    const {email, helpdesk, social_links} = contactPage;
+    const {email, helpdesk, social_links, custom_html} = contactPage;
     return (
       <div className="side-column contact">
         <div className="inner">
@@ -35,29 +35,40 @@ export default class Contact extends React.Component {
             </div>
           )}
 
-          <div className="contact-links">
-            {social_links.map((link) => {
-              if (shouldLinkBeShown(link, isAuthenticated, userData)) {
-                const css = link.css || "";
-                return (
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    key={link.url}
-                    className={`link ${css}`}
-                  >
-                    <img
-                      src={getAssetPath(orgSlug, link.icon)}
-                      alt={getText(link.alt, language)}
-                      className={`contact-image ${css}`}
-                    />
-                  </a>
-                );
-              }
-              return null;
-            })}
-          </div>
+          {social_links && (
+            <div className="contact-links">
+              {social_links.map((link) => {
+                if (shouldLinkBeShown(link, isAuthenticated, userData)) {
+                  const css = link.css || "";
+                  return (
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      key={link.url}
+                      className={`link ${css}`}
+                    >
+                      {link.icon && (
+                        <img
+                          src={getAssetPath(orgSlug, link.icon)}
+                          alt={getText(link.alt, language)}
+                          className={`contact-image ${css}`}
+                        />
+                      )}
+                      {link.text && getText(link.text, language)}
+                    </a>
+                  );
+                }
+                return null;
+              })}
+            </div>
+          )}
+
+          {custom_html && (
+            <div
+              dangerouslySetInnerHTML={{__html: getText(custom_html, language)}}
+            />
+          )}
         </div>
       </div>
     );
@@ -75,6 +86,7 @@ Contact.propTypes = {
     social_links: PropTypes.array,
     email: PropTypes.string,
     helpdesk: PropTypes.string,
+    custom_html: PropTypes.object,
   }).isRequired,
   isAuthenticated: PropTypes.bool,
   userData: PropTypes.object,

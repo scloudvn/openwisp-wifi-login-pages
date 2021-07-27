@@ -379,6 +379,61 @@ login_form:
 
 In order to enable users to log via third-party services like Google and Facebook, the ["Social Login" feature of OpenWISP Radius](https://openwisp-radius.readthedocs.io/en/latest/user/social_login.html) must be configured and enabled.
 
+#### Custom HTML
+
+It is possible to inject custom HTML in different languages in several parts of the application.
+
+Below you can find examples on how to use this feature.
+
+##### Login page
+
+```yaml
+login_form:
+  pre_html:
+    en: >
+      <div class="pre">
+        Shown before the main content.
+      </div>
+  intro_html:
+    en: >
+      <div class="intro">
+        Shown at the beginning of the login content box.
+      </div>
+  form_help_html:
+    en: >
+      <div class="intro">
+        Shown above the login form, after social login buttons.
+        Can be used to write custom help labels.
+      </div>
+  ending_html:
+    en: >
+      <div class="intro">
+        Shown at the end of the login content box.
+      </div>
+```
+
+##### Contact box
+
+```yaml
+contact_page:
+  custom_html:
+    en: >
+      <div class="contact">
+        Shown at the end of the contact box.
+      </div>
+```
+
+##### Footer
+
+```yaml
+footer:
+  secondary_html:
+    en: >
+      <div class="contact">
+        Shown at the bottom of the footer.
+      </div>
+```
+
 #### Configuring SAML Login & Logout
 
 To enable SAML login, the ["SAML" feature of OpenWISP Radius](https://openwisp-radius.readthedocs.io/en/latest/user/saml.html)
