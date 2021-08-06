@@ -15,6 +15,7 @@ import Login from "./login";
 import tick from "../../utils/tick";
 import Modal from "../modal";
 import getParameterByName from "../../utils/get-parameter-by-name";
+import {mapStateToProps, mapDispatchToProps} from "./index";
 
 jest.mock("axios");
 jest.mock("../../utils/get-config");
@@ -108,13 +109,15 @@ describe("<Login /> rendering", () => {
     expect(component).toMatchSnapshot();
   });
 
-  it("should render PhoneInput lazily", async () => {
+  it("should render PhoneInput lazily and handlers should work correctly", async () => {
     props.settings.mobile_phone_verification = true;
     const wrapper = shallow(<Login {...props} />);
+    const handleChange = jest.spyOn(wrapper.instance(), "handleChange");
     const component = wrapper.find("Suspense");
     expect(component).toMatchSnapshot();
     expect(component.find("lazy").length).toBe(1);
-    expect(component.find("lazy").props()).toEqual({
+    const prop = component.find("lazy").props();
+    expect(prop).toEqual({
       country: undefined,
       enableSearch: false,
       excludeCountries: [],
@@ -131,6 +134,37 @@ describe("<Login /> rendering", () => {
       placeholder: "enter mobile phone number",
       preferredCountries: [],
       value: "",
+    });
+    prop.onChange("+911234567890");
+    expect(handleChange).toHaveBeenCalledWith({
+      target: {
+        name: "username",
+        value: "++911234567890",
+      },
+    });
+  });
+
+  it("should load fallback before PhoneInput and handlers should work correctly", async () => {
+    props.settings.mobile_phone_verification = true;
+    const wrapper = shallow(<Login {...props} />);
+    const handleChange = jest.spyOn(wrapper.instance(), "handleChange");
+    const component = wrapper.find("Suspense");
+    const {fallback} = component.props();
+    expect(fallback.type).toEqual("input");
+    expect(fallback.props).toEqual({
+      name: "username",
+      value: "",
+      onChange: expect.any(Function),
+      placeholder: "enter mobile phone number",
+      id: "username",
+      type: "tel",
+    });
+    fallback.props.onChange("+911234567890");
+    expect(handleChange).toHaveBeenCalledWith({
+      target: {
+        name: "username",
+        value: "++911234567890",
+      },
     });
   });
 });
@@ -618,5 +652,48 @@ describe("<Login /> interactions", () => {
     const render = pathMap["default/login/:name"];
     const Comp = React.createElement(Modal).type;
     expect(JSON.stringify(render({}))).toStrictEqual(JSON.stringify(<Comp />));
+  });
+  it("should mapStateToProps and mapDispatchToProps on rendering", async () => {
+    const state = {
+      organization: {
+        configuration: {
+          slug: "test",
+          name: "test",
+          settings: {},
+          userData: {},
+          components: {
+            login_form: {
+              input_fields: {},
+            },
+            registration_form: {
+              input_fields: {
+                phone_number: {},
+              },
+            },
+          },
+          privacy_policy: "Privacy policy",
+          terms_and_conditions: "Terms and conditions",
+        },
+        language: "en",
+      },
+    };
+    let result = mapStateToProps(state);
+    expect(result).toEqual({
+      language: undefined,
+      loginForm: {input_fields: {phone_number: {}}},
+      orgName: "test",
+      orgSlug: "test",
+      privacyPolicy: "Privacy policy",
+      settings: {},
+      termsAndConditions: "Terms and conditions",
+      userData: {},
+    });
+    const dispatch = jest.fn();
+    result = mapDispatchToProps(dispatch);
+    expect(result).toEqual({
+      authenticate: expect.any(Function),
+      setUserData: expect.any(Function),
+      setTitle: expect.any(Function),
+    });
   });
 });
