@@ -174,8 +174,9 @@ body .input,
 .main-column > .inner {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: start;
   align-items: center;
+  width: 100%;
 }
 .main-column {
   width: 53%;
