@@ -25,8 +25,9 @@ const registration = (req, res) => {
         delete postData.phone_number;
         postData.method = "";
       }
-      if (settings && settings.subscriptions && postData.billing_info) {
+      if (settings && settings.subscriptions && postData.requires_payment) {
         postData.method = "bank_card";
+        delete postData.requires_payment;
       }
 
       const optionalFields = [
@@ -47,6 +48,7 @@ const registration = (req, res) => {
         method: "post",
         headers: {
           "content-type": "application/json",
+          "accept-language": req.headers["accept-language"],
         },
         url: `${host}${registerUrl}/`,
         timeout,

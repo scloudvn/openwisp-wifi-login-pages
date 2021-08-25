@@ -169,16 +169,22 @@ describe("Validate Token tests", () => {
     orgSlug: "default",
     cookies: new Cookies(),
     setUserData: jest.fn(),
-    userData: {is_active: true, is_verified: true},
+    userData: {is_active: true, is_verified: null, justAuthenticated: true},
     logout: jest.fn(),
   });
   it("should return false if token is not in the cookie", async () => {
     const {orgSlug, cookies, setUserData, userData, logout} = getArgs();
-    const result = await validateToken(cookies, orgSlug, setUserData, userData);
+    const result = await validateToken(
+      cookies,
+      orgSlug,
+      setUserData,
+      userData,
+      logout,
+    );
     expect(axios.mock.calls.length).toBe(0);
     expect(result).toBe(false);
-    expect(setUserData.mock.calls.length).toBe(0);
-    expect(logout.mock.calls.length).toBe(0);
+    expect(setUserData.mock.calls.length).toBe(1);
+    expect(logout.mock.calls.length).toBe(1);
   });
   it("should return true for success validation", async () => {
     axios.mockImplementationOnce(() =>
@@ -197,7 +203,13 @@ describe("Validate Token tests", () => {
     );
     const {orgSlug, cookies, setUserData, userData, logout} = getArgs();
     cookies.set(`${orgSlug}_auth_token`, "token");
-    const result = await validateToken(cookies, orgSlug, setUserData, userData);
+    const result = await validateToken(
+      cookies,
+      orgSlug,
+      setUserData,
+      userData,
+      logout,
+    );
     expect(axios).toHaveBeenCalled();
     expect(setUserData.mock.calls.length).toBe(1);
     expect(result).toBe(true);
@@ -206,7 +218,13 @@ describe("Validate Token tests", () => {
   it("should return true without calling api if radius token is present", async () => {
     const {orgSlug, cookies, setUserData, userData, logout} = getArgs();
     userData.radius_user_token = "token";
-    const result = await validateToken(cookies, orgSlug, setUserData, userData);
+    const result = await validateToken(
+      cookies,
+      orgSlug,
+      setUserData,
+      userData,
+      logout,
+    );
     expect(axios.mock.calls.length).toBe(0);
     expect(result).toBe(true);
     expect(setUserData.mock.calls.length).toBe(0);
@@ -304,21 +322,118 @@ describe("password-toggle tests", () => {
     );
   });
   it("should call handleClick", () => {
-    const wrapper = shallow(
-      <PasswordToggleIcon inputRef={React.createRef()} />,
-    );
     const setAttributeMock = jest.fn();
     const getAttributeMock = jest.fn();
+    const focusMock = jest.fn();
     const inputRef = {
       current: {
         getAttribute: getAttributeMock,
         setAttribute: setAttributeMock,
+        focus: focusMock,
       },
     };
-    wrapper.instance().handleClick(inputRef);
+    const wrapper = shallow(<PasswordToggleIcon inputRef={inputRef} />);
+
+    wrapper.instance().handleClick(inputRef, {});
     expect(getAttributeMock).toHaveBeenCalledWith("type");
     expect(setAttributeMock).toHaveBeenCalled();
     expect(setAttributeMock).toHaveBeenCalledWith("type", "password");
+    expect(focusMock).toHaveBeenCalled();
+  });
+  it("should show password for two fields", () => {
+    const setAttributeMock = jest.fn();
+    const getAttributeMock = jest.fn();
+    const focusMock = jest.fn();
+    const inputRef = {
+      current: {
+        getAttribute: getAttributeMock,
+        setAttribute: setAttributeMock,
+        focus: focusMock,
+      },
+    };
+    const secondInputRef = {
+      current: {
+        getAttribute: jest.fn(),
+        setAttribute: jest.fn(),
+        focus: jest.fn(),
+      },
+    };
+    const toggler = jest.fn();
+    const wrapper = shallow(
+      <PasswordToggleIcon
+        inputRef={inputRef}
+        secondInputRef={secondInputRef}
+        toggler={toggler}
+        hidePassword
+      />,
+    );
+    wrapper.instance().handleClick(inputRef, secondInputRef);
+    expect(getAttributeMock).toHaveBeenCalledWith("type");
+    expect(secondInputRef.current.getAttribute).toHaveBeenCalledWith("type");
+    expect(setAttributeMock).toHaveBeenCalledWith("type", "password");
+    expect(secondInputRef.current.setAttribute).toHaveBeenCalledWith(
+      "type",
+      "password",
+    );
+    expect(focusMock).toHaveBeenCalled();
+    expect(secondInputRef.current.focus).not.toHaveBeenCalled();
+    getAttributeMock.mockReturnValueOnce("password");
+    secondInputRef.current.getAttribute.mockReturnValueOnce("password");
+    wrapper.instance().handleClick(inputRef, secondInputRef);
+    expect(getAttributeMock).toHaveBeenCalledWith("type");
+    expect(secondInputRef.current.getAttribute).toHaveBeenCalledWith("type");
+    expect(setAttributeMock).toHaveBeenCalledWith("type", "text");
+    expect(secondInputRef.current.setAttribute).toHaveBeenCalledWith(
+      "type",
+      "text",
+    );
+    expect(focusMock).toHaveBeenCalled();
+    expect(secondInputRef.current.focus).not.toHaveBeenCalled();
+    expect(toggler).toHaveBeenCalled();
+  });
+  it("should show icon", () => {
+    const setAttributeMock = jest.fn();
+    const getAttributeMock = jest.fn();
+    const focusMock = jest.fn();
+    const inputRef = {
+      current: {
+        getAttribute: getAttributeMock,
+        setAttribute: setAttributeMock,
+        focus: focusMock,
+      },
+    };
+    const secondInputRef = {
+      current: {
+        getAttribute: jest.fn(),
+        setAttribute: jest.fn(),
+        focus: jest.fn(),
+      },
+    };
+    const toggler = jest.fn();
+    let wrapper = shallow(
+      <PasswordToggleIcon
+        inputRef={inputRef}
+        secondInputRef={secondInputRef}
+        toggler={toggler}
+        hidePassword
+      />,
+    );
+    expect(
+      wrapper.contains(<i className="eye" title="reveal password" />),
+    ).toEqual(true);
+    wrapper = shallow(
+      <PasswordToggleIcon
+        inputRef={inputRef}
+        secondInputRef={secondInputRef}
+        toggler={toggler}
+        hidePassword={false}
+      />,
+    );
+    expect(
+      wrapper.contains(<i className="eye-slash" title="hide password" />),
+    ).toEqual(true);
+    wrapper.instance().handleClick(inputRef, secondInputRef);
+    expect(toggler).toHaveBeenCalled();
   });
 });
 describe("submit-on-enter tests", () => {

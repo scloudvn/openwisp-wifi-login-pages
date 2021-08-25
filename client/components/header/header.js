@@ -8,12 +8,14 @@ import isInternalLink from "../../utils/check-internal-links";
 import getAssetPath from "../../utils/get-asset-path";
 import getText from "../../utils/get-text";
 import shouldLinkBeShown from "../../utils/should-link-be-shown";
+import getHtml from "../../utils/get-html";
 
 export default class Header extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
       menu: false,
+      stickyMsg: true,
     };
     this.handleHamburger = this.handleHamburger.bind(this);
     this.handleKeyUp = this.handleKeyUp.bind(this);
@@ -39,6 +41,26 @@ export default class Header extends React.Component {
     }
   }
 
+  getStickyMsg = () => {
+    const {stickyMsg} = this.state;
+    const {header, language} = this.props;
+    const {sticky_html: stickyHtml} = header;
+    return stickyMsg && stickyHtml ? (
+      <div className="sticky-container" role="banner">
+        <div className="inner">
+          {getHtml(stickyHtml, language, "sticky-msg")}
+          <button
+            type="button"
+            className="close-sticky-btn"
+            onClick={() => this.setState({stickyMsg: false})}
+          >
+            ✖
+          </button>
+        </div>
+      </div>
+    ) : null;
+  };
+
   render() {
     const {menu} = this.state;
     const {
@@ -51,7 +73,7 @@ export default class Header extends React.Component {
       isAuthenticated,
       userData,
     } = this.props;
-    const {logo, links} = header;
+    const {logo, links, second_logo: secondLogo} = header;
     const {pathname} = location;
     const internalLinks = [`/${orgSlug}/login`, `/${orgSlug}/registration`];
     return (
@@ -72,6 +94,17 @@ export default class Header extends React.Component {
                   ) : null}
                 </div>
               </div>
+
+              {secondLogo && (
+                <div className="header-logo-2">
+                  <img
+                    src={getAssetPath(orgSlug, secondLogo.url)}
+                    alt={secondLogo.alternate_text}
+                    className="header-logo-image header-desktop-logo-image"
+                  />
+                </div>
+              )}
+
               <div className="header-right">
                 {languages.map((lang) => (
                   <button
@@ -147,6 +180,15 @@ export default class Header extends React.Component {
                   ) : null}
                 </div>
               </div>
+              {secondLogo && (
+                <div className="header-logo-2">
+                  <img
+                    src={getAssetPath(orgSlug, secondLogo.url)}
+                    alt={secondLogo.alternate_text}
+                    className="header-logo-image header-mobile-logo-image"
+                  />
+                </div>
+              )}
               <div className="header-right">
                 <div
                   role="button"
@@ -218,6 +260,7 @@ export default class Header extends React.Component {
             </div>
           </div>
         </div>
+        {this.getStickyMsg()}
       </>
     );
   }
@@ -231,7 +274,12 @@ Header.propTypes = {
       alternate_text: PropTypes.string,
       url: PropTypes.string,
     }),
+    second_logo: PropTypes.shape({
+      alternate_text: PropTypes.string,
+      url: PropTypes.string,
+    }),
     links: PropTypes.array,
+    sticky_html: PropTypes.object,
   }).isRequired,
   language: PropTypes.string.isRequired,
   languages: PropTypes.arrayOf(

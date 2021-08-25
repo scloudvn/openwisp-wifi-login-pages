@@ -22,6 +22,7 @@ import handleSession from "../../utils/session";
 import validateToken from "../../utils/validate-token";
 import needsVerify from "../../utils/needs-verify";
 import {initialState} from "../../reducers/organization";
+import {Logout} from "../organization-wrapper/lazy-import";
 
 export default class Status extends React.Component {
   constructor(props) {
@@ -63,6 +64,7 @@ export default class Status extends React.Component {
     this.setState({
       rememberMe: localStorage.getItem("rememberMe") === "true",
     });
+    Logout.preload();
 
     // to prevent recursive call in case redirect url is status page
     if (window.top === window.self) {
@@ -354,7 +356,7 @@ export default class Status extends React.Component {
         localStorage.removeItem(logoutMethodKey);
         return;
       }
-
+      setUserData(initialState.userData);
       setLoading(false);
     }
 
@@ -677,7 +679,7 @@ export default class Status extends React.Component {
     return (
       <>
         <div className={modalActive ? "modal is-visible" : "modal"}>
-          <div className="modal-container">
+          <div className="modal-container bg">
             <button
               type="button"
               className="modal-close-btn"
@@ -708,46 +710,48 @@ export default class Status extends React.Component {
         <div className="container content" id="status">
           <div className="inner">
             <div className="main-column">
-              {contentArr.map((text) => {
-                if (text !== "") return <p key={text}>{text}</p>;
-                return null;
-              })}
-              {Object.keys(userInfo).map((key) => (
-                <p key={key}>
-                  <label>{user_info[key].text}:</label>
-                  <span>{userInfo[key]}</span>
-                </p>
-              ))}
-
-              <div className="row logout">
-                <input
-                  type="button"
-                  className="button full"
-                  value={t`LOGOUT`}
-                  onClick={
-                    rememberMe
-                      ? this.toggleModal
-                      : () => this.handleLogout(false)
-                  }
-                />
-              </div>
-
-              {links &&
-                links.map((link) => {
-                  if (shouldLinkBeShown(link, isAuthenticated, userData)) {
-                    return (
-                      <div className="links row" key={link.url}>
-                        <Link
-                          className="button full status-link"
-                          to={link.url.replace("{orgSlug}", orgSlug)}
-                        >
-                          {getText(link.text, language)}
-                        </Link>
-                      </div>
-                    );
-                  }
+              <div className="inner">
+                {contentArr.map((text) => {
+                  if (text !== "") return <p key={text}>{text}</p>;
                   return null;
                 })}
+                {Object.keys(userInfo).map((key) => (
+                  <p key={key}>
+                    <label>{user_info[key].text}:</label>
+                    <span>{userInfo[key]}</span>
+                  </p>
+                ))}
+
+                <div className="row logout">
+                  <input
+                    type="button"
+                    className="button full"
+                    value={t`LOGOUT`}
+                    onClick={
+                      rememberMe
+                        ? this.toggleModal
+                        : () => this.handleLogout(false)
+                    }
+                  />
+                </div>
+
+                {links &&
+                  links.map((link) => {
+                    if (shouldLinkBeShown(link, isAuthenticated, userData)) {
+                      return (
+                        <div className="links row" key={link.url}>
+                          <Link
+                            className="button full status-link"
+                            to={link.url.replace("{orgSlug}", orgSlug)}
+                          >
+                            {getText(link.text, language)}
+                          </Link>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+              </div>
             </div>
 
             <Contact />

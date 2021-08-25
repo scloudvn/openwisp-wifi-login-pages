@@ -14,6 +14,8 @@ import {confirmApiUrl} from "../../constants";
 import getErrorText from "../../utils/get-error-text";
 import logError from "../../utils/log-error";
 import handleChange from "../../utils/handle-change";
+import getError from "../../utils/get-error";
+import getLanguageHeaders from "../../utils/get-language-headers";
 
 export default class PasswordConfirm extends React.Component {
   constructor(props) {
@@ -23,6 +25,7 @@ export default class PasswordConfirm extends React.Component {
       newPassword2: "",
       errors: {},
       success: false,
+      hidePassword: true,
     };
     this.handleSubmit = this.handleSubmit.bind(this);
     this.handleChange = this.handleChange.bind(this);
@@ -42,7 +45,7 @@ export default class PasswordConfirm extends React.Component {
   handleSubmit(event) {
     const {setLoading} = this.context;
     event.preventDefault();
-    const {passwordConfirm, orgSlug, match} = this.props;
+    const {passwordConfirm, orgSlug, match, language} = this.props;
     const inputFields = passwordConfirm.input_fields;
     const {newPassword1, newPassword2, errors} = this.state;
     if (inputFields.password_confirm) {
@@ -63,6 +66,7 @@ export default class PasswordConfirm extends React.Component {
       method: "post",
       headers: {
         "content-type": "application/x-www-form-urlencoded",
+        "accept-language": getLanguageHeaders(language),
       },
       url,
       data: qs.stringify({
@@ -99,7 +103,8 @@ export default class PasswordConfirm extends React.Component {
   }
 
   render() {
-    const {newPassword1, newPassword2, errors, success} = this.state;
+    const {newPassword1, newPassword2, errors, success, hidePassword} =
+      this.state;
     const {passwordConfirm, orgSlug} = this.props;
     const inputFields = passwordConfirm.input_fields;
     const loginPageLink = passwordConfirm.login_page_link;
@@ -108,110 +113,109 @@ export default class PasswordConfirm extends React.Component {
         <div className="inner">
           {success ? (
             <div className="main-column">
-              <div className="message-container">
-                <div className="icon">
-                  <div className="tick" />
-                </div>
-                <div className="success">{success}</div>
-                <div className="row">
-                  {loginPageLink && (
-                    <Link to={`/${orgSlug}/login`} className="link">
-                      {t`LOGIN_PG_LNK`}
-                    </Link>
-                  )}
+              <div className="inner">
+                <div className="message-container">
+                  <div className="icon">
+                    <div className="tick" />
+                  </div>
+                  <div className="success">{success}</div>
+                  <div className="row">
+                    {loginPageLink && (
+                      <Link to={`/${orgSlug}/login`} className="link">
+                        {t`LOGIN_PG_LNK`}
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           ) : (
             <form className="main-column" onSubmit={this.handleSubmit}>
-              <h1>{t`PWD_CONFIRM_H`}</h1>
+              <div className="inner">
+                <h1>{t`PWD_CONFIRM_H`}</h1>
 
-              {passwordConfirm.additional_text && (
-                <p>{t`PWD_CONFIRM_ADD_TXT`}</p>
-              )}
-
-              <div className="fieldset">
-                {errors.nonField && (
-                  <div className="error non-field">
-                    <span className="icon">!</span>
-                    <span className="text">{errors.nonField}</span>
-                  </div>
+                {passwordConfirm.additional_text && (
+                  <p>{t`PWD_CONFIRM_ADD_TXT`}</p>
                 )}
 
-                <div className="row password">
-                  <label htmlFor="password">{t`PWD_LBL`}</label>
+                <div className="fieldset">
+                  {getError(errors)}
 
-                  {errors.newPassword1 && (
-                    <div className="error">
-                      <span className="icon">!</span>
-                      <span className="text ">{errors.newPassword1}</span>
-                    </div>
-                  )}
+                  <div className="row password">
+                    <label htmlFor="password">{t`PWD_LBL`}</label>
+                    {getError(errors, "newPassword1")}
 
-                  <input
-                    className={`input ${errors.newPassword1 ? "error" : ""}`}
-                    type="password"
-                    id="password"
-                    required
-                    name="newPassword1"
-                    value={newPassword1}
-                    onChange={this.handleChange}
-                    placeholder={t`PWD_PHOLD`}
-                    pattern={inputFields.password.pattern}
-                    title={t`PWD_PTRN_DESC`}
-                    ref={this.passwordToggleRef}
-                    autoComplete="new-password"
-                  />
-                  <PasswordToggleIcon inputRef={this.passwordToggleRef} />
+                    <input
+                      className={`input ${errors.newPassword1 ? "error" : ""}`}
+                      type="password"
+                      id="password"
+                      required
+                      name="newPassword1"
+                      value={newPassword1}
+                      onChange={this.handleChange}
+                      placeholder={t`PWD_PHOLD`}
+                      pattern={inputFields.password.pattern}
+                      title={t`PWD_PTRN_DESC`}
+                      ref={this.passwordToggleRef}
+                      autoComplete="new-password"
+                    />
+                    <PasswordToggleIcon
+                      inputRef={this.passwordToggleRef}
+                      secondInputRef={this.confirmPasswordToggleRef}
+                      hidePassword={hidePassword}
+                      toggler={() =>
+                        this.setState({hidePassword: !hidePassword})
+                      }
+                    />
+                  </div>
+
+                  <div className="row password-confirm">
+                    <label htmlFor="password-confirm">{t`CONFIRM_PWD_LBL`}</label>
+                    {getError(errors, "newPassword2")}
+
+                    <input
+                      className={`input ${errors.newPassword2 ? "error" : ""}`}
+                      type="password"
+                      id="password-confirm"
+                      required
+                      name="newPassword2"
+                      value={newPassword2}
+                      onChange={this.handleChange}
+                      placeholder={t`CONFIRM_PWD_PHOLD`}
+                      pattern={inputFields.password.pattern}
+                      title={t`PWD_PTRN_DESC`}
+                      ref={this.confirmPasswordToggleRef}
+                      autoComplete="new-password"
+                    />
+                    <PasswordToggleIcon
+                      inputRef={this.confirmPasswordToggleRef}
+                      secondInputRef={this.passwordToggleRef}
+                      hidePassword={hidePassword}
+                      toggler={() =>
+                        this.setState({hidePassword: !hidePassword})
+                      }
+                    />
+                  </div>
                 </div>
 
-                <div className="row password-confirm">
-                  <label htmlFor="password-confirm">{t`CONFIRM_PWD_LBL`}</label>
-
-                  {errors.newPassword2 && (
-                    <div className="error">
-                      <span className="icon">!</span>
-                      <span className="text ">{errors.newPassword2}</span>
-                    </div>
-                  )}
-
+                <div className="row submit">
                   <input
-                    className={`input ${errors.newPassword2 ? "error" : ""}`}
-                    type="password"
-                    id="password-confirm"
-                    required
-                    name="newPassword2"
-                    value={newPassword2}
-                    onChange={this.handleChange}
-                    placeholder={t`CONFIRM_PWD_PHOLD`}
-                    pattern={inputFields.password.pattern}
-                    title={t`PWD_PTRN_DESC`}
-                    ref={this.confirmPasswordToggleRef}
-                    autoComplete="new-password"
-                  />
-                  <PasswordToggleIcon
-                    inputRef={this.confirmPasswordToggleRef}
+                    type="submit"
+                    className="button full"
+                    value={t`PWD_CONFIRM`}
                   />
                 </div>
+
+                {passwordConfirm.contact_text && (
+                  <div className="contact-us">{t`PWD_RESET_CNTC_TXT`}</div>
+                )}
+
+                {loginPageLink && (
+                  <Link to={`/${orgSlug}/login`} className="link">
+                    {t`LOGIN_PG_LNK`}
+                  </Link>
+                )}
               </div>
-
-              <div className="row submit">
-                <input
-                  type="submit"
-                  className="button full"
-                  value={t`PWD_CONFIRM`}
-                />
-              </div>
-
-              {passwordConfirm.contact_text && (
-                <div className="contact-us">{t`PWD_RESET_CNTC_TXT`}</div>
-              )}
-
-              {loginPageLink && (
-                <Link to={`/${orgSlug}/login`} className="link">
-                  {t`LOGIN_PG_LNK`}
-                </Link>
-              )}
             </form>
           )}
 
@@ -245,4 +249,5 @@ PasswordConfirm.propTypes = {
     }),
   }).isRequired,
   setTitle: PropTypes.func.isRequired,
+  language: PropTypes.string.isRequired,
 };

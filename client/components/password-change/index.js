@@ -1,5 +1,5 @@
 import {connect} from "react-redux";
-import {setTitle} from "../../actions/dispatchers";
+import {setTitle, setUserData, logout} from "../../actions/dispatchers";
 
 import Component from "./password-change";
 
@@ -10,11 +10,15 @@ const mapStateToProps = (state, ownProps) => {
     orgSlug: conf.slug,
     orgName: conf.name,
     cookies: ownProps.cookies,
+    userData: conf.userData,
+    language: state.language,
   };
 };
 
 const mapDispatchToProps = (dispatch) => ({
   setTitle: setTitle(dispatch),
+  logout: logout(dispatch),
+  setUserData: setUserData(dispatch),
 });
 
 export default connect(mapStateToProps, mapDispatchToProps)(Component);

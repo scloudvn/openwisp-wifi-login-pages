@@ -8,13 +8,9 @@ import {t} from "ttag";
 import LoadingContext from "../../utils/loading-context";
 import Contact from "../contact-box";
 import validateToken from "../../utils/validate-token";
+import handleLogout from "../../utils/handle-logout";
 
 export default class PaymentStatus extends React.Component {
-  constructor(props) {
-    super(props);
-    this.handleLogout = this.handleLogout.bind(this);
-  }
-
   async componentDidMount() {
     const {cookies, orgSlug, setUserData, logout, result} = this.props;
     let {userData} = this.props;
@@ -32,13 +28,16 @@ export default class PaymentStatus extends React.Component {
     }
   }
 
-  handleLogout() {
-    const {setUserData, userData} = this.props;
-    setUserData({...userData, mustLogout: true});
-  }
-
   render() {
-    const {orgSlug, result, isAuthenticated, userData} = this.props;
+    const {
+      orgSlug,
+      result,
+      isAuthenticated,
+      userData,
+      logout,
+      setUserData,
+      cookies,
+    } = this.props;
     const {method, is_verified: isVerified} = userData;
     const redirectToStatus = () => <Redirect to={`/${orgSlug}/status`} />;
     const acceptedValues = ["success", "failed"];
@@ -71,25 +70,35 @@ export default class PaymentStatus extends React.Component {
       <div className="container content" id="not-foud-404">
         <div className="inner">
           <div className="main-column">
-            <h2 className="row payment-status-row-1">
-              {t`PAY_H`}: {result}
-            </h2>
-            <div className="row payment-status-row-2">{t`PAY_SUB_H`}</div>
-            <div className="row payment-status-row-3">
-              <Link className="button full" to={`/${orgSlug}/status`}>
-                {t`PAY_TRY_AGAIN_BTN`}
-              </Link>
-            </div>
+            <div className="inner">
+              <h2 className="row payment-status-row-1">
+                {t`PAY_H`}: {result}
+              </h2>
+              <div className="row payment-status-row-2">{t`PAY_SUB_H`}</div>
+              <div className="row payment-status-row-3">
+                <Link className="button full" to={`/${orgSlug}/status`}>
+                  {t`PAY_TRY_AGAIN_BTN`}
+                </Link>
+              </div>
 
-            <div className="row payment-status-row-4">
-              <p>{t`PAY_GIVE_UP_TXT`}</p>
-              <Link
-                onClick={this.handleLogout}
-                to={`/${orgSlug}/status`}
-                className="button full"
-              >
-                {t`PAY_GIVE_UP_BTN`}
-              </Link>
+              <div className="row payment-status-row-4">
+                <p>{t`PAY_GIVE_UP_TXT`}</p>
+                <Link
+                  onClick={() =>
+                    handleLogout(
+                      logout,
+                      cookies,
+                      orgSlug,
+                      setUserData,
+                      userData,
+                    )
+                  }
+                  to={`/${orgSlug}/status`}
+                  className="button full"
+                >
+                  {t`PAY_GIVE_UP_BTN`}
+                </Link>
+              </div>
             </div>
           </div>
 

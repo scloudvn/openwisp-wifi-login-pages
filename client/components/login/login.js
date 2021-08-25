@@ -4,12 +4,12 @@ import "./index.css";
 import axios from "axios";
 import PropTypes from "prop-types";
 import qs from "qs";
-import React from "react";
+import React, {Suspense} from "react";
 import {Link, Route} from "react-router-dom";
 import {toast} from "react-toastify";
-import PhoneInput from "react-phone-input-2";
 import {t} from "ttag";
 import getText from "../../utils/get-text";
+import getHtml from "../../utils/get-html";
 import "react-phone-input-2/lib/style.css";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -24,6 +24,11 @@ import renderAdditionalInfo from "../../utils/render-additional-info";
 import handleChange from "../../utils/handle-change";
 import Contact from "../contact-box";
 import Modal from "../modal";
+import {Status} from "../organization-wrapper/lazy-import";
+import getError from "../../utils/get-error";
+import getLanguageHeaders from "../../utils/get-language-headers";
+
+const PhoneInput = React.lazy(() => import("react-phone-input-2"));
 
 export default class Login extends React.Component {
   constructor(props) {
@@ -44,7 +49,6 @@ export default class Login extends React.Component {
     const token = getParameterByName("token");
     const {loginForm, setTitle, orgName, orgSlug} = this.props;
     setTitle(t`LOGIN`, orgName);
-
     let remember_me;
 
     if (localStorage.getItem("rememberMe") !== null) {
@@ -53,6 +57,7 @@ export default class Login extends React.Component {
       remember_me = loginForm.input_fields.remember_me.value;
     }
     this.setState({remember_me});
+    Status.preload();
 
     // social login / SAML login
     if (username && token) {
@@ -102,15 +107,13 @@ export default class Login extends React.Component {
     const placeholder = input_fields.username.placeholder
       ? getText(input_fields.username.placeholder, language)
       : t`USERNAME_PHOLD`;
+    const patternDesc = input_fields.username.pattern_description
+      ? getText(input_fields.username.pattern_description, language)
+      : t`USERNAME_TITL`;
     return (
       <div className="row username">
         <label htmlFor="username">{label}</label>
-        {errors.username && (
-          <div className="error">
-            <span className="icon">!</span>
-            <span className="text">{errors.username}</span>
-          </div>
-        )}
+        {getError(errors, "username")}
         <input
           className={`input ${errors.username ? "error" : ""}`}
           type={input_fields.username.type}
@@ -122,7 +125,7 @@ export default class Login extends React.Component {
           placeholder={placeholder}
           pattern={input_fields.username.pattern}
           autoComplete="username"
-          title={t`USERNAME_TITL`}
+          title={patternDesc}
         />
       </div>
     );
@@ -133,36 +136,48 @@ export default class Login extends React.Component {
     return (
       <div className="row phone-number">
         <label htmlFor="phone-number">{t`PHONE_LBL`}</label>
-        {errors.username && (
-          <div className="error">
-            <span className="icon">!</span>
-            <span className="text">{errors.username}</span>
-          </div>
-        )}
-        <PhoneInput
-          name="username"
-          country={input_fields.phone_number.country}
-          onlyCountries={input_fields.phone_number.only_countries || []}
-          preferredCountries={
-            input_fields.phone_number.preferred_countries || []
+        {getError(errors, "username")}
+        <Suspense
+          fallback={
+            <input
+              type="tel"
+              name="username"
+              value={username}
+              id="username"
+              onChange={(value) =>
+                this.handleChange({
+                  target: {name: "username", value: `+${value}`},
+                })
+              }
+              placeholder={t`PHONE_PHOLD`}
+            />
           }
-          excludeCountries={input_fields.phone_number.exclude_countries || []}
-          value={username}
-          onChange={(value) =>
-            this.handleChange({
-              target: {name: "username", value: `+${value}`},
-            })
-          }
-          placeholder={t`PHONE_PHOLD`}
-          enableSearch={Boolean(input_fields.phone_number.enable_search)}
-          inputProps={{
-            name: "username",
-            id: "username",
-            className: `form-control input ${errors.username ? "error" : ""}`,
-            required: true,
-            autoComplete: "tel",
-          }}
-        />
+        >
+          <PhoneInput
+            name="username"
+            country={input_fields.phone_number.country}
+            onlyCountries={input_fields.phone_number.only_countries || []}
+            preferredCountries={
+              input_fields.phone_number.preferred_countries || []
+            }
+            excludeCountries={input_fields.phone_number.exclude_countries || []}
+            value={username}
+            onChange={(value) =>
+              this.handleChange({
+                target: {name: "username", value: `+${value}`},
+              })
+            }
+            placeholder={t`PHONE_PHOLD`}
+            enableSearch={Boolean(input_fields.phone_number.enable_search)}
+            inputProps={{
+              name: "username",
+              id: "username",
+              className: `form-control input ${errors.username ? "error" : ""}`,
+              required: true,
+              autoComplete: "tel",
+            }}
+          />
+        </Suspense>
       </div>
     );
   };
@@ -174,7 +189,7 @@ export default class Login extends React.Component {
   handleSubmit(event) {
     const {setLoading} = this.context;
     if (event) event.preventDefault();
-    const {orgSlug, setUserData} = this.props;
+    const {orgSlug, setUserData, language} = this.props;
     const {username, password, errors} = this.state;
     const url = loginApiUrl(orgSlug);
     this.setState({
@@ -186,6 +201,7 @@ export default class Login extends React.Component {
       method: "post",
       headers: {
         "content-type": "application/x-www-form-urlencoded",
+        "accept-language": getLanguageHeaders(language),
       },
       url,
       data: qs.stringify({
@@ -265,115 +281,134 @@ export default class Login extends React.Component {
   render() {
     const {errors, password, remember_me} = this.state;
     const {loginForm, orgSlug, match, language} = this.props;
-    const {links, buttons, input_fields, social_login, additional_info_text} =
-      loginForm;
+    const {
+      links,
+      buttons,
+      input_fields,
+      social_login,
+      additional_info_text,
+      intro_html,
+      pre_html,
+      help_html,
+      after_html,
+    } = loginForm;
     return (
       <>
+        {intro_html && (
+          <div className="container intro">
+            {getHtml(intro_html, language, "inner")}
+          </div>
+        )}
         <div className="container content" id="login">
           <div className="inner">
             <form className="main-column" onSubmit={this.handleSubmit}>
-              {social_login && social_login.links && (
-                <div className="social-links row">
-                  {social_login.links.map((link) => (
-                    <p key={link.url}>
-                      <a
-                        href={link.url}
-                        rel="noopener noreferrer"
-                        className="social-link button full"
-                      >
-                        <span className="inner">
-                          <img
-                            src={getAssetPath(orgSlug, link.icon)}
-                            alt={getText(link.text, language)}
-                            className="icon"
-                          />
-                          <span className="text">
-                            {getText(link.text, language)}
-                          </span>
-                        </span>
-                      </a>
-                    </p>
-                  ))}
-                </div>
-              )}
+              <div className="inner">
+                {getHtml(pre_html, language, "pre-html")}
 
-              <div className="fieldset">
-                {errors.nonField && (
-                  <div className="error non-field">
-                    <span className="icon">!</span>
-                    <span className="text">{errors.nonField}</span>
+                {social_login && social_login.links && (
+                  <div className="social-links row">
+                    {social_login.links.map((link) => (
+                      <p key={link.url}>
+                        <a
+                          href={link.url}
+                          rel="noopener noreferrer"
+                          className="social-link button full"
+                        >
+                          <span className="inner">
+                            <img
+                              src={getAssetPath(orgSlug, link.icon)}
+                              alt={getText(link.text, language)}
+                              className="icon"
+                            />
+                            <span className="text">
+                              {getText(link.text, language)}
+                            </span>
+                          </span>
+                        </a>
+                      </p>
+                    ))}
                   </div>
                 )}
 
-                {this.getUsernameField(input_fields)}
+                {getHtml(help_html, language, "help-container")}
 
-                <div className="row password">
-                  <label htmlFor="password">{t`PWD_LBL`}</label>
-                  {errors.password && (
-                    <div className="error">
-                      <span className="icon">!</span>
-                      <span className="text">{errors.password}</span>
-                    </div>
-                  )}
+                <div className="fieldset">
+                  {getError(errors)}
+
+                  {this.getUsernameField(input_fields)}
+
+                  <div className="row password">
+                    <label htmlFor="password">{t`PWD_LBL`}</label>
+                    {getError(errors, "password")}
+                    <input
+                      className={`input ${errors.password ? "error" : ""}`}
+                      type="password"
+                      id="password"
+                      required
+                      name="password"
+                      value={password}
+                      onChange={this.handleChange}
+                      placeholder={t`PWD_PHOLD`}
+                      pattern={input_fields.password.pattern}
+                      title={t`PWD_PTRN_DESC`}
+                      ref={this.passwordToggleRef}
+                      autoComplete="current-password"
+                    />
+                    <PasswordToggleIcon inputRef={this.passwordToggleRef} />
+                  </div>
+
+                  <div className="row remember-me">
+                    <input
+                      type="checkbox"
+                      id="remember_me"
+                      name="remember_me"
+                      checked={remember_me}
+                      onChange={this.handleCheckBoxChange}
+                    />
+                    <label htmlFor="remember_me">{t`REMEMBER_ME`}</label>
+                  </div>
+                </div>
+
+                {additional_info_text && (
+                  <div className="row add-info">
+                    {renderAdditionalInfo(
+                      t`LOGIN_ADD_INFO_TXT`,
+                      orgSlug,
+                      "login",
+                    )}
+                  </div>
+                )}
+
+                <div className="row login">
                   <input
-                    className={`input ${errors.password ? "error" : ""}`}
-                    type="password"
-                    id="password"
-                    required
-                    name="password"
-                    value={password}
-                    onChange={this.handleChange}
-                    placeholder={t`PWD_PHOLD`}
-                    pattern={input_fields.password.pattern}
-                    title={t`PWD_PTRN_DESC`}
-                    ref={this.passwordToggleRef}
-                    autoComplete="current-password"
+                    type="submit"
+                    className="button full"
+                    value={t`LOGIN`}
                   />
-                  <PasswordToggleIcon inputRef={this.passwordToggleRef} />
                 </div>
 
-                <div className="row remember-me">
-                  <input
-                    type="checkbox"
-                    id="remember_me"
-                    name="remember_me"
-                    checked={remember_me}
-                    onChange={this.handleCheckBoxChange}
-                  />
-                  <label htmlFor="remember_me">{t`REMEMBER_ME`}</label>
-                </div>
+                {buttons.register && (
+                  <div className="row register">
+                    <p>{t`REGISTER_BTN_LBL`}</p>
+                    <Link
+                      to={`/${orgSlug}/registration`}
+                      className="button full"
+                    >
+                      {t`REGISTER_BTN_TXT`}
+                    </Link>
+                  </div>
+                )}
+
+                {links && links.forget_password && (
+                  <div className="row links">
+                    <Link to={`/${orgSlug}/password/reset`} className="link">
+                      {t`FORGOT_PASSWORD`}
+                    </Link>
+                  </div>
+                )}
+
+                {getHtml(after_html, language, "after-html")}
               </div>
-
-              {additional_info_text && (
-                <div className="row add-info">
-                  {renderAdditionalInfo(
-                    t`LOGIN_ADD_INFO_TXT`,
-                    orgSlug,
-                    "login",
-                  )}
-                </div>
-              )}
-
-              <div className="row login">
-                <input type="submit" className="button full" value={t`LOGIN`} />
-              </div>
-
-              {buttons.register && (
-                <div className="row register">
-                  <p>{t`REGISTER_BTN_LBL`}</p>
-                  <Link to={`/${orgSlug}/registration`} className="button full">
-                    {t`REGISTER_BTN_TXT`}
-                  </Link>
-                </div>
-              )}
-
-              {links && links.forget_password && (
-                <div className="row links">
-                  <Link to={`/${orgSlug}/password/reset`} className="link">
-                    {t`FORGOT_PASSWORD`}
-                  </Link>
-                </div>
-              )}
             </form>
 
             <Contact />
@@ -431,6 +466,10 @@ Login.propTypes = {
     links: PropTypes.shape({
       forget_password: PropTypes.bool,
     }).isRequired,
+    pre_html: PropTypes.object,
+    intro_html: PropTypes.object,
+    help_html: PropTypes.object,
+    after_html: PropTypes.object,
   }).isRequired,
   language: PropTypes.string.isRequired,
   match: PropTypes.shape({

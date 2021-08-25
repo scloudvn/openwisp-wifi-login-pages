@@ -14,23 +14,22 @@ import Header from "../header";
 import Footer from "../footer";
 import LoadingContext from "../../utils/loading-context";
 import Loader from "../../utils/loader";
-import Logout from "../logout";
-import Login from "../login";
 import needsVerify from "../../utils/needs-verify";
 import loadTranslation from "../../utils/load-translation";
-
-const Registration = React.lazy(() => import("../registration"));
-const PasswordChange = React.lazy(() => import("../password-change"));
-const MobilePhoneChange = React.lazy(() => import("../mobile-phone-change"));
-const PasswordReset = React.lazy(() => import("../password-reset"));
-const PasswordConfirm = React.lazy(() => import("../password-confirm"));
-const Status = React.lazy(() => import("../status"));
-const MobilePhoneVerification = React.lazy(() =>
-  import("../mobile-phone-verification"),
-);
-const PaymentStatus = React.lazy(() => import("../payment-status"));
-const ConnectedDoesNotExist = React.lazy(() => import("../404"));
-const DoesNotExist = React.lazy(() => import("../404/404"));
+import {
+  Login,
+  Registration,
+  Status,
+  PasswordChange,
+  MobilePhoneChange,
+  PasswordReset,
+  PasswordConfirm,
+  Logout,
+  MobilePhoneVerification,
+  PaymentStatus,
+  ConnectedDoesNotExist,
+  DoesNotExist,
+} from "./lazy-import";
 
 export default class OrganizationWrapper extends React.Component {
   constructor(props) {
@@ -52,12 +51,12 @@ export default class OrganizationWrapper extends React.Component {
 
   async componentDidUpdate(prevProps) {
     const {setOrganization, match, cookies, language} = this.props;
-    const {translationLoaded} = this.state;
+    const {translationLoaded, configLoaded} = this.state;
     if (prevProps.match.params.organization !== match.params.organization) {
       if (match.params.organization)
         setOrganization(match.params.organization, cookies);
     }
-    if (translationLoaded !== true) {
+    if (translationLoaded !== true && configLoaded === true) {
       const userLangChoice = localStorage.getItem(
         `${match.params.organization}-userLangChoice`,
       );
@@ -68,7 +67,7 @@ export default class OrganizationWrapper extends React.Component {
           false,
         );
       } else await this.loadLanguage(language, match.params.organization, true);
-    } else if (prevProps.language !== language) {
+    } else if (prevProps.language !== language && prevProps.language !== "") {
       localStorage.setItem(
         `${match.params.organization}-userLangChoice`,
         language,
@@ -90,11 +89,14 @@ export default class OrganizationWrapper extends React.Component {
       setLanguage,
       useBrowserLang,
       languages,
-      defaultLanguage,
     );
-    this.setState({
-      translationLoaded: true,
-    });
+    this.setState(
+      {
+        translationLoaded: true,
+        configLoaded: false,
+      },
+      () => this.setState({configLoaded: true}), // to force re-render in child components
+    );
   };
 
   render() {
@@ -196,7 +198,11 @@ export default class OrganizationWrapper extends React.Component {
                   render={(props) => {
                     if (isAuthenticated && is_active)
                       return <Redirect to={`/${orgSlug}/status`} />;
-                    return <Login {...props} />;
+                    return (
+                      <Suspense fallback={<Loader full={false} />}>
+                        <Login {...props} />
+                      </Suspense>
+                    );
                   }}
                 />
                 <Route
@@ -225,7 +231,12 @@ export default class OrganizationWrapper extends React.Component {
                   render={(props) => {
                     if (isAuthenticated)
                       return <Redirect to={`/${orgSlug}/status`} />;
-                    if (userAutoLogin) return <Logout {...props} />;
+                    if (userAutoLogin)
+                      return (
+                        <Suspense fallback={<Loader full={false} />}>
+                          <Logout {...props} />
+                        </Suspense>
+                      );
                     return <Redirect to={`/${orgSlug}/login`} />;
                   }}
                 />

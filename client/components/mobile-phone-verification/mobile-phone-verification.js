@@ -21,7 +21,9 @@ import handleChange from "../../utils/handle-change";
 import Contact from "../contact-box";
 import handleSession from "../../utils/session";
 import validateToken from "../../utils/validate-token";
-import {initialState} from "../../reducers/organization";
+import handleLogout from "../../utils/handle-logout";
+import getError from "../../utils/get-error";
+import getLanguageHeaders from "../../utils/get-language-headers";
 
 export default class MobilePhoneVerification extends React.Component {
   phoneTokenSentKey = "owPhoneTokenSent";
@@ -37,7 +39,6 @@ export default class MobilePhoneVerification extends React.Component {
     this.handleSubmit = this.handleSubmit.bind(this);
     this.handleChange = this.handleChange.bind(this);
     this.resendPhoneToken = this.resendPhoneToken.bind(this);
-    this.handleLogout = this.handleLogout.bind(this);
   }
 
   async componentDidMount() {
@@ -73,7 +74,7 @@ export default class MobilePhoneVerification extends React.Component {
   handleSubmit(event) {
     const {setLoading} = this.context;
     event.preventDefault();
-    const {orgSlug, cookies, setUserData, userData} = this.props;
+    const {orgSlug, cookies, setUserData, userData, language} = this.props;
     const {code, errors} = this.state;
     this.setState({errors: {...errors, code: ""}});
     const url = verifyMobilePhoneTokenUrl(orgSlug);
@@ -83,6 +84,7 @@ export default class MobilePhoneVerification extends React.Component {
       method: "post",
       headers: {
         "content-type": "application/x-www-form-urlencoded",
+        "accept-language": getLanguageHeaders(language),
       },
       url,
       data: qs.stringify({
@@ -100,6 +102,7 @@ export default class MobilePhoneVerification extends React.Component {
           is_active: true,
           is_verified: true,
           justAuthenticated: true,
+          username: userData.phone_number,
         });
         setLoading(false);
       })
@@ -128,7 +131,7 @@ export default class MobilePhoneVerification extends React.Component {
     if (!resend && this.hasPhoneTokenBeenSent()) {
       return false;
     }
-    const {orgSlug} = this.props;
+    const {orgSlug, language} = this.props;
     const {errors, phone_number} = this.state;
     const self = this;
     const url = createMobilePhoneTokenUrl(orgSlug);
@@ -136,6 +139,7 @@ export default class MobilePhoneVerification extends React.Component {
       method: "post",
       headers: {
         "content-type": "application/x-www-form-urlencoded",
+        "accept-language": getLanguageHeaders(language),
       },
       url,
       data: qs.stringify({
@@ -160,13 +164,6 @@ export default class MobilePhoneVerification extends React.Component {
       });
   }
 
-  async handleLogout() {
-    const {orgSlug, logout, cookies, setUserData} = this.props;
-    logout(cookies, orgSlug);
-    setUserData(initialState.userData);
-    toast.success(t`LOGOUT_SUCCESS`);
-  }
-
   async resendPhoneToken() {
     const {setLoading} = this.context;
     setLoading(true);
@@ -176,86 +173,92 @@ export default class MobilePhoneVerification extends React.Component {
 
   render() {
     const {code, errors, success, phone_number} = this.state;
-    const {orgSlug, mobile_phone_verification} = this.props;
+    const {
+      orgSlug,
+      mobile_phone_verification,
+      logout,
+      cookies,
+      setUserData,
+      userData,
+    } = this.props;
     const {input_fields} = mobile_phone_verification;
     return (
       <div className="container content" id="mobile-phone-verification">
         <div className="inner">
           <div className="main-column">
-            <form
-              className={`${success ? "success" : ""}`}
-              onSubmit={this.handleSubmit}
-            >
-              <div className="row fieldset code">
-                <p className="label">{t`PHONE_VERIFY (${phone_number})`}</p>
+            <div className="inner">
+              <form
+                className={`${success ? "success" : ""}`}
+                onSubmit={this.handleSubmit}
+              >
+                <div className="row fieldset code">
+                  <p className="label">{t`PHONE_VERIFY (${phone_number})`}</p>
+                  {getError(errors)}
 
-                {errors.nonField && (
-                  <div className="error non-field">
-                    <span className="icon">!</span>
-                    <span className="text">{errors.nonField}</span>
+                  <div className="row">
+                    {getError(errors, "code")}
+                    <input
+                      className={`input ${
+                        errors.code || errors.nonField ? "error" : ""
+                      }`}
+                      type="text"
+                      id="code"
+                      required
+                      name="code"
+                      value={code}
+                      onChange={this.handleChange}
+                      placeholder={t`MOBILE_CODE_PHOLD`}
+                      pattern={input_fields.code.pattern}
+                      title={t`MOBILE_CODE_TITL`}
+                    />
                   </div>
-                )}
 
-                <div className="row">
-                  {errors.code && (
-                    <div className="error">
-                      <span className="icon">!</span>
-                      <span className="text">{errors.code}</span>
-                    </div>
-                  )}
-                  <input
-                    className={`input ${
-                      errors.code || errors.nonField ? "error" : ""
-                    }`}
-                    type="text"
-                    id="code"
-                    required
-                    name="code"
-                    value={code}
-                    onChange={this.handleChange}
-                    placeholder={t`MOBILE_CODE_PHOLD`}
-                    pattern={input_fields.code.pattern}
-                    title={t`MOBILE_CODE_TITL`}
-                  />
+                  <button type="submit" className="button full">
+                    {t`MOBILE_PHONE_VERIFY`}
+                  </button>
                 </div>
+              </form>
 
-                <button type="submit" className="button full">
-                  {t`MOBILE_PHONE_VERIFY`}
+              <div className="row fieldset resend">
+                <p className="label">{t`RESEND_TOKEN_LBL`}</p>
+
+                <button
+                  type="button"
+                  className="button full"
+                  onClick={this.resendPhoneToken}
+                >
+                  {t`RESEND_TOKEN`}
                 </button>
               </div>
-            </form>
 
-            <div className="row fieldset resend">
-              <p className="label">{t`RESEND_TOKEN_LBL`}</p>
+              <div className="row fieldset change">
+                <p className="label">{t`PHONE_CHANGE_LBL`}</p>
+                <a
+                  href={`/${orgSlug}/change-phone-number`}
+                  className="button full"
+                >
+                  {t`PHONE_CHANGE_BTN`}
+                </a>
+              </div>
 
-              <button
-                type="button"
-                className="button full"
-                onClick={this.resendPhoneToken}
-              >
-                {t`RESEND_TOKEN`}
-              </button>
-            </div>
-
-            <div className="row fieldset change">
-              <p className="label">{t`PHONE_CHANGE_LBL`}</p>
-              <a
-                href={`/${orgSlug}/change-phone-number`}
-                className="button full"
-              >
-                {t`PHONE_CHANGE_BTN`}
-              </a>
-            </div>
-
-            <div className="row fieldset logout">
-              <p className="label">{t`LOGOUT_LBL`}</p>
-              <button
-                type="button"
-                className="button full"
-                onClick={this.handleLogout}
-              >
-                {t`LOGOUT`}
-              </button>
+              <div className="row fieldset logout">
+                <p className="label">{t`LOGOUT_LBL`}</p>
+                <button
+                  type="button"
+                  className="button full"
+                  onClick={() =>
+                    handleLogout(
+                      logout,
+                      cookies,
+                      orgSlug,
+                      setUserData,
+                      userData,
+                    )
+                  }
+                >
+                  {t`LOGOUT`}
+                </button>
+              </div>
             </div>
           </div>
           <Contact />
@@ -283,4 +286,5 @@ MobilePhoneVerification.propTypes = {
   userData: PropTypes.object.isRequired,
   setUserData: PropTypes.func.isRequired,
   setTitle: PropTypes.func.isRequired,
+  language: PropTypes.string.isRequired,
 };

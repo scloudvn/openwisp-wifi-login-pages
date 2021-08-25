@@ -12,6 +12,8 @@ import getErrorText from "../../utils/get-error-text";
 import logError from "../../utils/log-error";
 import handleChange from "../../utils/handle-change";
 import Contact from "../contact-box";
+import getError from "../../utils/get-error";
+import getLanguageHeaders from "../../utils/get-language-headers";
 
 export default class PasswordReset extends React.Component {
   constructor(props) {
@@ -37,7 +39,7 @@ export default class PasswordReset extends React.Component {
   handleSubmit(event) {
     const {setLoading} = this.context;
     event.preventDefault();
-    const {orgSlug} = this.props;
+    const {orgSlug, language} = this.props;
     const {email, errors} = this.state;
     const url = resetApiUrl.replace("{orgSlug}", orgSlug);
     setLoading(true);
@@ -45,6 +47,7 @@ export default class PasswordReset extends React.Component {
       method: "post",
       headers: {
         "content-type": "application/x-www-form-urlencoded",
+        "accept-language": getLanguageHeaders(language),
       },
       url,
       data: qs.stringify({
@@ -84,61 +87,60 @@ export default class PasswordReset extends React.Component {
         <div className="inner">
           {success ? (
             <div className="main-column">
-              <div className="success">{success}</div>
-              <Link to={`/${orgSlug}/login`} className="link">
-                {t`LOGIN_PG_LNK`}
-              </Link>
+              <div className="inner">
+                <div className="success">{success}</div>
+                <Link to={`/${orgSlug}/login`} className="link">
+                  {t`LOGIN_PG_LNK`}
+                </Link>
+              </div>
             </div>
           ) : (
             <form className="main-column" onSubmit={this.handleSubmit}>
-              {passwordReset.additional_text && (
-                <p className="label">{t`PWD_RESET_ADD_TXT`}</p>
-              )}
+              <div className="inner">
+                {passwordReset.additional_text && (
+                  <p className="label">{t`PWD_RESET_ADD_TXT`}</p>
+                )}
 
-              <div className="fieldset">
-                <div className="row email">
-                  <label htmlFor="email">{t`EMAIL`}</label>
-                  {errors.email && (
-                    <div className="error">
-                      <span className="icon">!</span>
-                      <span className="text email">{errors.email}</span>
-                    </div>
-                  )}
-                  <input
-                    className={`input ${errors.email ? "error" : ""}`}
-                    type="email"
-                    id="email"
-                    required
-                    name="email"
-                    value={email}
-                    onChange={this.handleChange}
-                    placeholder={t`EMAIL_PHOLD`}
-                    pattern={inputFields.email.pattern}
-                    title={t`EMAIL_PTRN_DESC`}
-                    autoComplete="email"
-                  />
+                <div className="fieldset">
+                  <div className="row email">
+                    <label htmlFor="email">{t`EMAIL`}</label>
+                    {getError(errors, "email")}
+                    <input
+                      className={`input ${errors.email ? "error" : ""}`}
+                      type="email"
+                      id="email"
+                      required
+                      name="email"
+                      value={email}
+                      onChange={this.handleChange}
+                      placeholder={t`EMAIL_PHOLD`}
+                      pattern={inputFields.email.pattern}
+                      title={t`EMAIL_PTRN_DESC`}
+                      autoComplete="email"
+                    />
+                  </div>
+
+                  <div className="row submit">
+                    <input
+                      type="submit"
+                      className="button full"
+                      value={t`PWD_RESET_BTN`}
+                    />
+                  </div>
                 </div>
 
-                <div className="row submit">
-                  <input
-                    type="submit"
-                    className="button full"
-                    value={t`PWD_RESET_BTN`}
-                  />
-                </div>
+                {passwordReset.contact_text && (
+                  <div className="row contact-us">{t`PWD_RESET_CNTC_TXT`}</div>
+                )}
+
+                {loginPageLink && (
+                  <div className="row links">
+                    <Link to={`/${orgSlug}/login`} className="link">
+                      {t`LOGIN_PG_LNK`}
+                    </Link>
+                  </div>
+                )}
               </div>
-
-              {passwordReset.contact_text && (
-                <div className="row contact-us">{t`PWD_RESET_CNTC_TXT`}</div>
-              )}
-
-              {loginPageLink && (
-                <div className="row links">
-                  <Link to={`/${orgSlug}/login`} className="link">
-                    {t`LOGIN_PG_LNK`}
-                  </Link>
-                </div>
-              )}
             </form>
           )}
 
@@ -163,4 +165,5 @@ PasswordReset.propTypes = {
   orgSlug: PropTypes.string.isRequired,
   orgName: PropTypes.string.isRequired,
   setTitle: PropTypes.func.isRequired,
+  language: PropTypes.string.isRequired,
 };
