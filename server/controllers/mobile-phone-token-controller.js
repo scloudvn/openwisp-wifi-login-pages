@@ -6,7 +6,7 @@ import qs from "qs";
 import config from "../config.json";
 import defaultConfig from "../utils/default-config";
 import Logger from "../utils/logger";
-import reverse from "../utils/proxy-urls";
+import reverse from "../utils/openwisp-urls";
 
 export const createMobilePhoneToken = (req, res) => {
   const reqOrg = req.params.organization;
@@ -82,6 +82,7 @@ export const verifyMobilePhoneToken = (req, res) => {
         headers: {
           "content-type": "application/x-www-form-urlencoded",
           Authorization: `Bearer ${token}`,
+          "accept-language": req.headers["accept-language"],
         },
         url: `${host}${url}/`,
         timeout,

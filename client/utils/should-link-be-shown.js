@@ -1,6 +1,13 @@
 /* eslint-disable camelcase */
 const shouldLinkBeShown = (link, isAuthenticated, userData) => {
-  const {is_verified} = userData;
+  const {is_verified, method} = userData;
+  if (
+    method &&
+    link.methods_excluded &&
+    link.methods_excluded.includes(method)
+  ) {
+    return false;
+  }
   if (
     link.authenticated === isAuthenticated &&
     isAuthenticated === true &&
@@ -12,9 +19,9 @@ const shouldLinkBeShown = (link, isAuthenticated, userData) => {
   if (
     link.authenticated === isAuthenticated &&
     isAuthenticated === true &&
-    link.method !== undefined
+    link.methods_only !== undefined
   ) {
-    return link.method === userData.method;
+    return link.methods_only.includes(userData.method);
   }
   return (
     link.authenticated === undefined || link.authenticated === isAuthenticated

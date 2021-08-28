@@ -382,7 +382,7 @@ describe("Change Phone Number: corner cases", () => {
     expect(setUserData.mock.calls.length).toBe(0);
   });
 
-  it("should redirect only if mobile_phone_verification is disabled", async () => {
+  it("should not redirect if mobile_phone_verification is enabled", async () => {
     mockAxios();
     props.settings.mobile_phone_verification = true;
     wrapper = await mountComponent(props);
@@ -402,6 +402,26 @@ describe("Change Phone Number: corner cases", () => {
     props.settings.mobile_phone_verification = true;
     wrapper = await mountComponent(props);
     expect(wrapper.find(Redirect)).toHaveLength(0);
+  });
+
+  it("should not redirect if user registration method is mobile_phone", async () => {
+    validateToken.mockReturnValue(true);
+    props.userData = userData;
+    props.userData.is_active = true;
+    props.userData.method = "mobile_phone";
+    props.settings.mobile_phone_verification = true;
+    wrapper = await mountComponent(props);
+    expect(wrapper.find(Redirect)).toHaveLength(0);
+  });
+
+  it("should redirect if user registration method is not mobile_phone", async () => {
+    validateToken.mockReturnValue(true);
+    props.userData = userData;
+    props.userData.is_active = true;
+    props.userData.method = "saml";
+    props.settings.mobile_phone_verification = true;
+    wrapper = await mountComponent(props);
+    expect(wrapper.find(Redirect)).toHaveLength(1);
   });
 
   it("should validate token", async () => {

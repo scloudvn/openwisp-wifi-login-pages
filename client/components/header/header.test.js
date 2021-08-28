@@ -211,6 +211,28 @@ describe("<Header /> rendering", () => {
     expect(wrapper.find(".sticky-msg").length).toEqual(0);
     expect(wrapper.find(".close-sticky-btn").length).toEqual(0);
   });
+  it("should not show change password if login method is SAML / Social Login", () => {
+    props = createTestProps();
+    props.header.links = [
+      {
+        text: {en: "Change Password"},
+        url: "/{orgSlug}/change-password",
+        authenticated: true,
+        methods_excluded: ["saml", "social_login"],
+      },
+    ];
+    props.isAuthenticated = true;
+    props.userData.method = "saml";
+    wrapper = shallow(<Header {...props} />);
+    let linkText = getLinkText(wrapper, ".header-link");
+    expect(linkText).not.toContain("Change Password");
+    wrapper.setProps({userData: {...props.userData, method: "social_login"}});
+    linkText = getLinkText(wrapper, ".header-link");
+    expect(linkText).not.toContain("Change Password");
+    wrapper.setProps({userData: {...props.userData, method: "mobile_phone"}});
+    linkText = getLinkText(wrapper, ".header-link");
+    expect(linkText).toContain("Change Password");
+  });
 });
 
 describe("<Header /> interactions", () => {
