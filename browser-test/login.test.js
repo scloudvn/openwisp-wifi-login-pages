@@ -5,20 +5,19 @@ import {
   urls,
   initialData,
   initializeData,
-  clearData,
+  tearDown,
 } from "./utils";
 
 describe("Selenium tests for <Login />", () => {
   let driver;
 
   beforeAll(async () => {
-    initializeData();
+    await initializeData();
     driver = await getDriver();
   }, 30000);
 
-  afterAll(() => {
-    clearData();
-    driver.close();
+  afterAll(async () => {
+    await tearDown(driver);
   });
 
   it("should render login page and submit login form", async () => {

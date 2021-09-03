@@ -21,6 +21,7 @@ import shouldLinkBeShown from "../../utils/should-link-be-shown";
 import handleSession from "../../utils/session";
 import validateToken from "../../utils/validate-token";
 import needsVerify from "../../utils/needs-verify";
+import Loader from "../../utils/loader";
 import {initialState} from "../../reducers/organization";
 import {Logout} from "../organization-wrapper/lazy-import";
 
@@ -144,14 +145,17 @@ export default class Status extends React.Component {
           no active session from macaddr stored in the cookie */
         const {activeSessions} = this.state;
         if (activeSessions && activeSessions.length === 0) {
-          if (this.loginFormRef && this.loginFormRef.current)
+          if (this.loginFormRef && this.loginFormRef.current) {
+            this.notifyCpLogin(userData);
             this.loginFormRef.current.submit();
+          }
         }
       } else if (
         this.loginFormRef &&
         this.loginFormRef.current &&
         justAuthenticated
       ) {
+        this.notifyCpLogin(userData);
         this.loginFormRef.current.submit();
         userData.justAuthenticated = false;
         setUserData(userData);
@@ -184,6 +188,7 @@ export default class Status extends React.Component {
       userData.is_verified ||
       !needsVerify("mobile_phone", userData, settings)
     ) {
+      this.dismissCpLogin();
       setLoading(false);
       // if verification is needed, stop here
     } else {
@@ -352,8 +357,8 @@ export default class Status extends React.Component {
       toast.success(t`LOGOUT_SUCCESS`);
 
       if (saml_logout_url && logoutMethod === "saml") {
-        window.location.assign(saml_logout_url);
         localStorage.removeItem(logoutMethodKey);
+        window.location.assign(saml_logout_url);
         return;
       }
       setUserData(initialState.userData);
@@ -614,11 +619,7 @@ export default class Status extends React.Component {
     return this.getSmallTable(session_info);
   };
 
-  getSpinner = () => (
-    <div className="loadingContainer">
-      <p className="loading" />
-    </div>
-  );
+  getSpinner = () => <Loader full={false} small />;
 
   getSessionInfo = () => ({
     header: {
@@ -757,17 +758,21 @@ export default class Status extends React.Component {
             <Contact />
           </div>
         </div>
-        {((activeSessions.length > 0 || pastSessions.length > 0) && (
-          <InfinteScroll
-            dataLength={pastSessions.length}
-            next={this.fetchMoreSessions}
-            hasMore={hasMoreSessions}
-            loader={this.getSpinner()}
-          >
-            <>{this.getTable(this.getSessionInfo())}</>
-          </InfinteScroll>
-        )) ||
-          (loadSpinner ? this.getSpinner() : null)}
+
+        <div id="sessions" className="flex-column">
+          {((activeSessions.length > 0 || pastSessions.length > 0) && (
+            <InfinteScroll
+              dataLength={pastSessions.length}
+              next={this.fetchMoreSessions}
+              hasMore={hasMoreSessions}
+              loader={this.getSpinner()}
+              style={{overflow: false}}
+            >
+              <>{this.getTable(this.getSessionInfo())}</>
+            </InfinteScroll>
+          )) ||
+            (loadSpinner ? this.getSpinner() : null)}
+        </div>
 
         {/* check to ensure this block of code is executed in root document and not in Iframe */}
         {captivePortalLoginForm && window.top === window.self && (
@@ -859,6 +864,19 @@ export default class Status extends React.Component {
       </>
     );
   }
+
+  notifyCpLogin = (userData) => {
+    // do not send notification if user is not verified yet
+    if (userData.is_verified === false) {
+      return;
+    }
+    this.cpLoginToastId = toast.info(t`CP_LOGIN`, {autoClose: 10000});
+  };
+
+  dismissCpLogin = () => {
+    const {cpLoginToastId} = this;
+    if (cpLoginToastId) toast.dismiss(this.cpLoginToastId);
+  };
 }
 Status.contextType = LoadingContext;
 Status.defaultProps = {

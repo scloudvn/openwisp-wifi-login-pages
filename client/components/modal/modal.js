@@ -8,6 +8,7 @@ import axios from "axios";
 import getText from "../../utils/get-text";
 import {modalContentUrl} from "../../constants";
 import logError from "../../utils/log-error";
+import Loader from "../../utils/loader";
 import getLanguageHeaders from "../../utils/get-language-headers";
 
 export default class Modal extends React.Component {
@@ -80,7 +81,7 @@ export default class Modal extends React.Component {
               &#10006;
             </Link>
             {loading ? (
-              "Loading..."
+              <Loader full={false} />
             ) : (
               <div
                 className="message"

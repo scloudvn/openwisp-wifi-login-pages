@@ -30,7 +30,7 @@ const prompts = [
     message: "What is the slug of the organization?",
     validate: (value) => {
       if (/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)) {
-        return organizationExists(`${value}.yml`)
+        return organizationExists(value)
           ? "An organization with this slug already exists"
           : true;
       }
@@ -124,10 +124,10 @@ const prompts = [
   },
 ];
 
-const writeConfigFile = (fileName, object) => {
+const writeConfigFile = (filePath, object) => {
   try {
     fs.writeFileSync(
-      path.join(orgConfigurationDir, fileName),
+      path.join(orgConfigurationDir, filePath),
       yaml.dump(object),
     );
   } catch (err) {
@@ -158,8 +158,7 @@ const isArray = (arr) => {
   return nums.every((num) => checkArr.includes(num));
 };
 
-const createConfiguration = async () => {
-  const response = await prompt(prompts);
+const createConfiguration = async (response) => {
   const plop = nodePlop(`./internals/generators/index.js`);
   const organizationGenerator = plop.getGenerator("organization");
   await organizationGenerator.runActions(response).then((results) => {
@@ -181,7 +180,11 @@ const createConfiguration = async () => {
     const defaultConfig = yaml.load(fs.readFileSync(defaultConfigFile, "utf8"));
     const generatedConfig = yaml.load(
       fs.readFileSync(
-        path.join(orgConfigurationDir, `${response.slug}.yml`),
+        path.resolve(
+          orgConfigurationDir,
+          response.slug,
+          `${response.slug}.yml`,
+        ),
         "utf-8",
       ),
     );
@@ -203,8 +206,41 @@ const createConfiguration = async () => {
         return _.isEqual(v, {}) ? undefined : value;
       }),
     );
-    writeConfigFile(`${response.slug}.yml`, config);
+    writeConfigFile(path.join(response.slug, `${response.slug}.yml`), config);
   }
 };
 
-createConfiguration();
+const createConfigurationWithPrompts = async () => {
+  const response = await prompt(prompts);
+  createConfiguration(response);
+};
+
+const createConfigurationWithoutPrompts = (passedData) => {
+  const requiredKeys = [
+    "name",
+    "slug",
+    "uuid",
+    "secret_key",
+    "mobile_phone_verification",
+    "subscriptions",
+    "login_action_url",
+    "logout_action_url",
+    "logout_by_session_ID",
+    "remember_me",
+    "openwisp_radius_url",
+    "assets_confirm",
+  ];
+  try {
+    const response = JSON.parse(passedData);
+    // eslint-disable-next-line no-prototype-builtins
+    if (requiredKeys.every((key) => response.hasOwnProperty(key)))
+      createConfiguration(response);
+    else console.error("Key is missing");
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+if (process.argv.includes("--noprompt"))
+  createConfigurationWithoutPrompts(process.argv[process.argv.length - 1]);
+else createConfigurationWithPrompts();
