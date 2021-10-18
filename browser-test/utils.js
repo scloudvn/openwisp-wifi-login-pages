@@ -28,8 +28,12 @@ export const getDriver = async () =>
     .build();
 
 export const getElementByCss = async (driver, css) => {
-  const el = await driver.wait(until.elementLocated(By.css(css)), waitTime);
-  driver.wait(until.stalenessOf(el), waitTime);
+  let el;
+  try {
+    el = await driver.wait(until.elementLocated(By.css(css)), waitTime);
+  } catch (err) {
+    console.log(err, css);
+  }
   return el;
 };
 
@@ -70,6 +74,8 @@ export const urls = {
   mobilePhoneChange: (slug) =>
     `http://0.0.0.0:8080/${slug}/change-phone-number`,
 };
+
+export const successToastSelector = ".Toastify__toast--success div[role=alert]";
 
 // increase the jest global test time out
 // because browser tests can take a bit longer to complete

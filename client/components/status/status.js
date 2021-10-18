@@ -11,7 +11,7 @@ import {Cookies} from "react-cookie";
 import {Link} from "react-router-dom";
 import {toast} from "react-toastify";
 import InfinteScroll from "react-infinite-scroll-component";
-import {t} from "ttag";
+import {t, gettext} from "ttag";
 import {getUserRadiusSessionsUrl, mainToastId} from "../../constants";
 import LoadingContext from "../../utils/loading-context";
 import getText from "../../utils/get-text";
@@ -24,6 +24,7 @@ import needsVerify from "../../utils/needs-verify";
 import Loader from "../../utils/loader";
 import {initialState} from "../../reducers/organization";
 import {Logout} from "../organization-wrapper/lazy-import";
+import InfoModal from "../../utils/modal";
 
 export default class Status extends React.Component {
   constructor(props) {
@@ -42,11 +43,11 @@ export default class Status extends React.Component {
       userInfo: {},
       currentPage: 1,
       hasMoreSessions: false,
-      intervalId: null,
       screenWidth: window.innerWidth,
       loadSpinner: true,
       modalActive: false,
       rememberMe: false,
+      internetMode: false,
     };
     this.repeatLogin = false;
     this.getUserRadiusSessions = this.getUserRadiusSessions.bind(this);
@@ -75,6 +76,9 @@ export default class Status extends React.Component {
         const macaddr = searchParams.get(
           captivePortalLoginForm.macaddr_param_name,
         );
+
+        window.addEventListener("message", this.handlePostMessage);
+
         if (macaddr) {
           cookies.set(`${orgSlug}_macaddr`, macaddr, {path: "/"});
         } else {
@@ -99,7 +103,7 @@ export default class Status extends React.Component {
         return;
       }
 
-      const {justAuthenticated, mustLogout, repeatLogin} = userData;
+      const {mustLogin, mustLogout, repeatLogin} = userData;
       ({userData} = this.props);
 
       const {
@@ -150,25 +154,20 @@ export default class Status extends React.Component {
             this.loginFormRef.current.submit();
           }
         }
-      } else if (
-        this.loginFormRef &&
-        this.loginFormRef.current &&
-        justAuthenticated
-      ) {
+      } else if (this.loginFormRef && this.loginFormRef.current && mustLogin) {
         this.notifyCpLogin(userData);
         this.loginFormRef.current.submit();
-        userData.justAuthenticated = false;
+        userData.mustLogin = false;
         setUserData(userData);
         // if user is already authenticated and coming from other pages
-      } else if (!justAuthenticated) {
+      } else if (!mustLogin) {
         this.finalOperations();
       }
     }
   }
 
   componentWillUnmount = () => {
-    const {intervalId} = this.state;
-    clearInterval(intervalId);
+    clearInterval(this.intervalId);
     window.removeEventListener("resize", this.updateScreenWidth);
   };
 
@@ -198,10 +197,9 @@ export default class Status extends React.Component {
     // if everything went fine, load the user sessions
     await this.getUserActiveRadiusSessions();
     await this.getUserPassedRadiusSessions();
-    const intervalId = setInterval(() => {
+    this.intervalId = setInterval(() => {
       this.getUserActiveRadiusSessions();
     }, 60000);
-    this.setState({intervalId});
     window.addEventListener("resize", this.updateScreenWidth);
     this.updateSpinner();
   }
@@ -232,17 +230,24 @@ export default class Status extends React.Component {
         options.sessionsToLogout = response.data;
       } else {
         const {pastSessions} = this.state;
-        options.pastSessions = pastSessions.concat(response.data);
+        options.pastSessions =
+          para.page === 1 ? response.data : pastSessions.concat(response.data);
         options.currentPage = params.page;
       }
       options.hasMoreSessions =
         "link" in headers && headers.link.includes("next");
       this.setState(options);
     } catch (error) {
-      logout(cookies, orgSlug);
-      toast.error(t`ERR_OCCUR`, {
-        onOpen: () => toast.dismiss(mainToastId),
-      });
+      // logout only if unauthorized or forbidden
+      if (
+        error.response &&
+        (error.response.status === 401 || error.response.status === 403)
+      ) {
+        logout(cookies, orgSlug);
+        toast.error(t`ERR_OCCUR`, {
+          onOpen: () => toast.dismiss(mainToastId),
+        });
+      }
       logError(error, t`ERR_OCCUR`);
     }
   }
@@ -272,7 +277,7 @@ export default class Status extends React.Component {
     localStorage.setItem("userAutoLogin", userAutoLogin);
     setLoading(true);
     await this.getUserActiveRadiusSessions(params);
-    const {sessionsToLogout} = this.state;
+    const {sessionsToLogout, internetMode} = this.state;
 
     if (sessionsToLogout.length > 0) {
       if (this.logoutFormRef && this.logoutFormRef.current) {
@@ -281,7 +286,9 @@ export default class Status extends React.Component {
         } else {
           this.repeatLogin = true;
         }
-        this.logoutFormRef.current.submit();
+        if (!internetMode) {
+          this.logoutFormRef.current.submit();
+        }
         return;
       }
     }
@@ -342,17 +349,16 @@ export default class Status extends React.Component {
     if (!this.logoutIframeRef || !this.logoutIframeRef.current) {
       return;
     }
-    const {userData, setUserData, statusPage, orgSlug} = this.props;
+    const {setUserData, statusPage, orgSlug, logout, cookies} = this.props;
     const {saml_logout_url} = statusPage;
     const {loggedOut} = this.state;
     const {repeatLogin} = this;
     const {setLoading} = this.context;
     const logoutMethodKey = `${orgSlug}_logout_method`;
     const logoutMethod = localStorage.getItem(logoutMethodKey);
+    const userAutoLogin = localStorage.getItem("userAutoLogin") === "true";
 
     if (loggedOut) {
-      const {logout, cookies} = this.props;
-      const userAutoLogin = localStorage.getItem("userAutoLogin") === "true";
       logout(cookies, orgSlug, userAutoLogin);
       toast.success(t`LOGOUT_SUCCESS`);
 
@@ -366,16 +372,50 @@ export default class Status extends React.Component {
     }
 
     if (repeatLogin) {
-      userData.justAuthenticated = true;
-      userData.mustLogout = false;
-      userData.repeatLogin = false;
-      // will trigger the creation of a new radius token
-      userData.radius_user_token = undefined;
       this.repeatLogin = false;
-      setUserData(userData);
       // wait to trigger login to avoid getting stuck
       // in captive portal firewall rule reloading
-      setTimeout(async () => this.componentDidMount(), 1000);
+      toast.info(t`PLEASE_WAIT`, {autoClose: 6000});
+      setTimeout(async () => {
+        toast.info(t`PLEASE_LOGIN`, {autoClose: 10000});
+        setUserData(initialState.userData);
+        setLoading(false);
+        logout(cookies, orgSlug, userAutoLogin);
+      }, 6000);
+    }
+  };
+
+  handlePostMessage = async (event) => {
+    const {captivePortalLoginForm, logout, cookies, orgSlug} = this.props;
+    const {setLoading} = this.context;
+    const {message, type} = event.data;
+    // For security reasons, read https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage#security_concern
+    if (
+      event.origin === new URL(captivePortalLoginForm.action).origin ||
+      event.origin === window.location.origin
+    ) {
+      switch (type) {
+        case "authError":
+          if (!message) break;
+          toast.dismiss();
+          /* disable ttag */
+          toast.error(gettext(message), {
+            autoClose: 10000,
+          });
+          /* enable ttag */
+          logout(cookies, orgSlug);
+          setLoading(false);
+          break;
+
+        case "internet-mode":
+          this.setState({
+            internetMode: true,
+          });
+          break;
+
+        default:
+        // do nothing
+      }
     }
   };
 
@@ -673,49 +713,33 @@ export default class Status extends React.Component {
       loadSpinner,
       modalActive,
       rememberMe,
+      internetMode,
     } = this.state;
     const user_info = this.getUserInfo();
     const contentArr = t`STATUS_CONTENT`.split("\n");
     userInfo.status = user_info.status.value;
     return (
       <>
-        <div className={modalActive ? "modal is-visible" : "modal"}>
-          <div className="modal-container bg">
-            <button
-              type="button"
-              className="modal-close-btn"
-              onClick={this.toggleModal}
-            >
-              &#10006;
-            </button>
-            <p className="message">{t`LOGOUT_MODAL_CONTENT`}</p>
-
-            <p className="modal-buttons">
-              <button
-                type="button"
-                className="button partial"
-                onClick={() => this.handleLogout(true)}
-              >
-                {t`YES`}
-              </button>
-              <button
-                type="button"
-                className="button partial"
-                onClick={() => this.handleLogout(false)}
-              >
-                {t`NO`}
-              </button>
-            </p>
-          </div>
-        </div>
+        <InfoModal
+          active={modalActive}
+          toggleModal={this.toggleModal}
+          handleResponse={this.handleLogout}
+          content={<p className="message">{t`LOGOUT_MODAL_CONTENT`}</p>}
+        />
         <div className="container content" id="status">
           <div className="inner">
             <div className="main-column">
               <div className="inner">
-                {contentArr.map((text) => {
-                  if (text !== "") return <p key={text}>{text}</p>;
-                  return null;
-                })}
+                {!internetMode &&
+                  contentArr.map((text) => {
+                    if (text !== "")
+                      return (
+                        <p key={text} className="status-content">
+                          {text}
+                        </p>
+                      );
+                    return null;
+                  })}
                 {Object.keys(userInfo).map((key) => (
                   <p key={key}>
                     <label>{user_info[key].text}:</label>

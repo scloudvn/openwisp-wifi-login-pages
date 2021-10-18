@@ -2,6 +2,7 @@
 name: "{{name}}"
 slug: "{{slug}}"
 settings:
+  radius_realms: {{radius_realms}}
   mobile_phone_verification: {{mobile_phone_verification}}
   subscriptions: {{subscriptions}}
 
@@ -27,12 +28,13 @@ client:
   favicon: null
 {{/if}}
 
-  # path of the custom css file relative to organization's folder in
-  # assets directory.
+  # path of the custom css file or files relative to organization's
+  # folder in assets directory.
 {{#if assets_confirm}}
-  css_path: "index.css"
+  css:
+    - "index.css"
 {{else}}
-  css_path: null
+  css: null
 {{/if}}
   languages:
     - text: "english"

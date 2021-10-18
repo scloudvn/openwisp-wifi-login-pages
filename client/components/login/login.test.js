@@ -16,11 +16,13 @@ import tick from "../../utils/tick";
 import Modal from "../modal";
 import getParameterByName from "../../utils/get-parameter-by-name";
 import {mapStateToProps, mapDispatchToProps} from "./index";
+import redirectToPayment from "../../utils/redirect-to-payment";
 
 jest.mock("axios");
 jest.mock("../../utils/get-config");
 jest.mock("../../utils/get-parameter-by-name");
 jest.mock("../../utils/load-translation");
+jest.mock("../../utils/redirect-to-payment");
 
 const defaultConfig = getConfig("default", true);
 const loginForm = defaultConfig.components.login_form;
@@ -33,11 +35,20 @@ const createTestProps = (props) => ({
   loginForm,
   privacyPolicy: defaultConfig.privacy_policy,
   termsAndConditions: defaultConfig.terms_and_conditions,
-  settings: {mobile_phone_verification: false},
+  settings: {mobile_phone_verification: false, radius_realms: false},
   authenticate: jest.fn(),
   setUserData: jest.fn(),
   userData: {},
   setTitle: jest.fn(),
+  captivePortalLoginForm: {
+    method: "POST",
+    action: "https://radius-proxy/login/",
+    fields: {
+      username: "username",
+      password: "password",
+    },
+    additional_fields: [],
+  },
   match: {
     path: "default/login",
   },
@@ -167,6 +178,16 @@ describe("<Login /> rendering", () => {
         value: "++911234567890",
       },
     });
+  });
+
+  it("should render radius realms form if radius_realms is true", () => {
+    props = createTestProps();
+    props.settings.radius_realms = true;
+    loadTranslation("en", "default");
+    const component = shallow(<Login {...props} />).find(
+      "[id='cp-login-form']",
+    );
+    expect(component).toMatchSnapshot();
   });
 });
 
@@ -385,9 +406,7 @@ describe("<Login /> interactions", () => {
     expect(handleSubmit).toHaveBeenCalled();
     const setUserDataMock = login.props().setUserData.mock;
     expect(setUserDataMock.calls.length).toBe(1);
-    expect(setUserDataMock.calls.pop()).toEqual([
-      {...data, justAuthenticated: true},
-    ]);
+    expect(setUserDataMock.calls.pop()).toEqual([{...data, mustLogin: true}]);
     const authenticateMock = login.props().authenticate.mock;
     expect(authenticateMock.calls.length).toBe(1);
     expect(authenticateMock.calls.pop()).toEqual([true]);
@@ -400,7 +419,7 @@ describe("<Login /> interactions", () => {
 
     const data = {...userData};
     data.username = "tester";
-    data.is_verified = false;
+    data.is_verified = true;
     data.method = "bank_card";
     data.payment_url = "https://account.openwisp.io/payment/123";
     axios.mockImplementationOnce(() =>
@@ -426,12 +445,45 @@ describe("<Login /> interactions", () => {
     expect(handleSubmit).toHaveBeenCalled();
     const setUserDataMock = login.props().setUserData.mock;
     expect(setUserDataMock.calls.length).toBe(1);
-    expect(setUserDataMock.calls.pop()).toEqual([
-      {...data, justAuthenticated: true},
-    ]);
+    expect(setUserDataMock.calls.pop()).toEqual([{...data, mustLogin: true}]);
     const authenticateMock = login.props().authenticate.mock;
     expect(authenticateMock.calls.length).toBe(1);
     expect(authenticateMock.calls.pop()).toEqual([true]);
+  });
+  it("should redirect to payment status if bank_card and not verified", async () => {
+    props.settings = {subscriptions: true};
+    wrapper = mountComponent(props);
+    const login = wrapper.find(Login);
+    const handleSubmit = jest.spyOn(login.instance(), "handleSubmit");
+
+    const data = {...userData};
+    data.username = "tester";
+    data.is_verified = false;
+    data.method = "bank_card";
+    data.payment_url = "https://account.openwisp.io/payment/123";
+    axios.mockImplementationOnce(() =>
+      Promise.resolve({
+        status: 200,
+        data,
+      }),
+    );
+
+    wrapper.find("#username").simulate("change", {
+      target: {value: "tester", name: "username"},
+    });
+    expect(login.state("username")).toEqual("tester");
+    wrapper
+      .find("#password")
+      .simulate("change", {target: {value: "test password", name: "password"}});
+    expect(login.state("password")).toEqual("test password");
+
+    const event = {preventDefault: () => {}};
+    wrapper.find("form").simulate("submit", event);
+    await tick();
+    expect(handleSubmit).toHaveBeenCalled();
+    const authenticateMock = login.props().authenticate.mock;
+    expect(redirectToPayment).toHaveBeenCalledWith("default");
+    expect(authenticateMock.calls.length).toBe(1);
   });
   it("phone_number field should be present if mobile phone verification is on", async () => {
     props.settings = {mobile_phone_verification: true};
@@ -562,7 +614,7 @@ describe("<Login /> interactions", () => {
     expect(errorMethod).toHaveBeenCalled();
     expect(errorMethod).toBeCalledWith("Login error occurred.");
   });
-  it("should set justAuthenticated on login success", async () => {
+  it("should set mustLogin on login success", async () => {
     axios.mockImplementationOnce(() =>
       Promise.reject({
         response: {
@@ -589,7 +641,7 @@ describe("<Login /> interactions", () => {
     const setUserDataMock = login.props().setUserData.mock;
     expect(setUserDataMock.calls.length).toBe(1);
     expect(setUserDataMock.calls.pop()).toEqual([
-      {...userData, justAuthenticated: true},
+      {...userData, mustLogin: true},
     ]);
   });
   it("should call setTitle to set log in title", () => {
@@ -631,7 +683,7 @@ describe("<Login /> interactions", () => {
         key: userData.key,
         is_active: true,
         radius_user_token: undefined,
-        justAuthenticated: true,
+        mustLogin: true,
       },
     ]);
     const authenticateMock = login.props().authenticate.mock;
@@ -718,5 +770,33 @@ describe("<Login /> interactions", () => {
       setUserData: expect.any(Function),
       setTitle: expect.any(Function),
     });
+  });
+  it("should submit form if radius_realms is true", async () => {
+    wrapper = shallow(<Login {...props} />, {context: loadingContextValue});
+    expect(wrapper.find("[id='cp-login-form']").length).toEqual(0);
+    props.settings.radius_realms = true;
+    props.captivePortalLoginForm.additional_fields = [
+      {name: "zone", value: "zone_value"},
+    ];
+    wrapper = shallow(<Login {...props} />, {context: loadingContextValue});
+    const form = wrapper.find("[id='cp-login-form']");
+    wrapper.instance().setState({username: "realms@", password: "testing"});
+    expect(form.length).toEqual(1);
+    expect(form.props()).toEqual({
+      action: "https://radius-proxy/login/",
+      children: expect.any(Array),
+      className: "hidden",
+      id: "cp-login-form",
+      method: "POST",
+    });
+    expect(form.props().children).toEqual([
+      <input name="username" type="hidden" value="" />,
+      <input name="password" type="hidden" value="" />,
+      [<input name="zone" key="zone" type="hidden" value="zone_value" />],
+    ]);
+    const mockRef = {submit: jest.fn()};
+    wrapper.instance().realmsRadiusLoginForm.current = mockRef;
+    wrapper.instance().handleSubmit({preventDefault: () => {}});
+    expect(mockRef.submit).toHaveBeenCalled();
   });
 });

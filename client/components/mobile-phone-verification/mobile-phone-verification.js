@@ -102,7 +102,7 @@ export default class MobilePhoneVerification extends React.Component {
           ...userData,
           is_active: true,
           is_verified: true,
-          justAuthenticated: true,
+          mustLogin: true,
           username: userData.phone_number,
         });
       })
@@ -168,6 +168,11 @@ export default class MobilePhoneVerification extends React.Component {
     const {setLoading} = this.context;
     setLoading(true);
     await this.createPhoneToken(true);
+    // reset error messages
+    this.setState({
+      errors: {},
+      code: "",
+    });
     setLoading(false);
   }
 

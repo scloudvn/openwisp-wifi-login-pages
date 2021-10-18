@@ -55,12 +55,17 @@ the [OpenWISP Radius API](https://openwisp-radius.readthedocs.io/) to provide th
 
 ### Table of contents
 
+- [Deploy it in production](#deploy-it-in-production)
 - [Prerequisites](#prerequisites)
 - [Install](#install)
 - [Usage](#usage)
 - [Settings](#settings)
 - [Translations](#translations)
 - [License](#license)
+
+### Deploy it in production
+
+An ansible role which can be used to deploy and maintain this app is available, see [ansible-openwisp-wifi-login-pages](https://github.com/openwisp/ansible-openwisp-wifi-login-pages/).
 
 ### Prerequisites
 
@@ -102,12 +107,6 @@ installed on your system, install the dependencies with:
 
 ```
 yarn
-```
-
-##### Update dependencies
-
-```
-yarn upgrade
 ```
 
 To verify all the dependencies were successfully installed,
@@ -261,6 +260,39 @@ sure `default` is replaced with the actual organization `slug` that is being use
 
 And of course it's possible to customize more than just the name and logo,
 the example above has been kept short for brevity.
+
+**Note**: if a variant defines a configuration option which contains an array/list
+of objects (eg: menu links), the array/list defined in the variant always
+overwrites fully what is defined in the parent configuration file.
+
+##### Variant with different organization slug / UUID / secret
+
+In some cases, different organizations may share an identical configuration,
+with very minor differences. Variants can be used also in these cases to
+minimize maintenance efforts.
+
+The important thing to keep in mind is that the organization `slug`, `uuid`,
+`secret_key` need to be reset in the configuration file:
+
+Example:
+
+```yaml
+---
+name: "<organization_name>"
+slug: "<organization_slug>"
+server:
+  uuid: "<organization_uuid>"
+  secret_key: "<organization_secret_key>"
+client:
+  css:
+    - "index.css"
+    - "<org-css-if-needed>"
+  components:
+    header:
+      logo:
+        url: "org-logo.svg"
+        alternate_text: "..."
+```
 
 ### Usage
 
@@ -467,6 +499,19 @@ login_form:
 In order to enable users to log via third-party services like Google and Facebook,
 the ["Social Login" feature of OpenWISP Radius](https://openwisp-radius.readthedocs.io/en/latest/user/social_login.html)
 must be configured and enabled.
+
+#### Custom CSS files
+
+It's possible to specify multiple CSS files if needed.
+
+```yaml
+client:
+  css:
+    - "index.css"
+    - "custom.css"
+```
+
+Adding multiple CSS files can be useful when working with [variants](#variants-of-the-same-configuration).
 
 #### Custom HTML
 
@@ -721,6 +766,103 @@ JSON translation file used by that specific organization.
 
 **Note**: Do not remove the content headers from the `.po` files as it is needed
 during the build process.
+
+### Handling Captive Portal / RADIUS Errors
+
+This app can handle errors that may encountered during the
+authentication process (eg: maximum available daily/monthly time or
+bandwidth have been consumed).
+
+To use this feature, you will have to update the error page
+of your captive portal to use
+[postMessage](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage)
+for forwarding any error message to **OpenWISP WiFi Login Pages**.
+
+Here is an example of authentication error page for pfSense:
+
+```html
+<!DOCTYPE html>
+<html>
+  <body>
+    <script>
+      window.parent.postMessage(
+        {type: "authError", message: "$PORTAL_MESSAGE$"},
+        "https://wifi-login-pages.example.com/",
+      );
+    </script>
+  </body>
+</html>
+```
+
+**Note:** Replace `https://wifi-login-pages.example.com/` with `origin` of
+your **OpenWISP WiFi Login Pages** service.
+
+With the right configuration, the error messages coming from freeradius or
+the captive portal will be visible to users on **OpenWISP WiFi Login Pages**.
+
+### Supporting realms (RADIUS proxy)
+
+To enable support for realms, set `radius_realms` to `true` as in the example below:
+
+```yaml
+---
+name: "default name"
+slug: "default"
+
+settings:
+  radius_realms: true
+```
+
+When support for `radius_realms` is `true` and the username inserted in the
+username field by the user includes an `@` sign, the login page will submit
+the credentials directly to the URL specified in `captive_portal_login_form`,
+hence bypassing this app altogether.
+
+Keep in mind that in this use case, since users are basically authenticating
+against databases stored in other sources foreign to OpenWISP but trusted by
+the RADIUS configuration, the wifi-login-pages app stops making any sense,
+because users are registered elsewhere, do not have a local account on OpenWISP,
+therefore won't be able to authenticate nor change their personal details via
+the OpenWISP RADIUS API and this app.
+
+### Allowing users to manage account from the Internet
+
+The authentication flow might hang if a user tries to access their
+account from the public internet (without connecting to the WiFi service).
+It occurs because the **OpenWISP WiFi Login Page** waits for a response
+from the captive portal, which is usually inaccessible from the public
+internet. If your infrastructure has such a configuration then,
+follow the below instructions to avoid hanging of authentication flow.
+
+Create a small web application which can serve the endpoints entered in
+`captive_portal_login_form.action` and `captive_portal_logout_form.action`
+of organization configuration.
+
+The web application should serve the following HTML on those endpoints:
+
+```html
+<!DOCTYPE html>
+<html>
+  <body>
+    <script>
+      window.parent.postMessage(
+        {type: "internet-mode"},
+        "https://wifi-login-pages.example.com/",
+      );
+    </script>
+  </body>
+</html>
+```
+
+**Note:** Replace `https://wifi-login-pages.example.com/` with `origin` of
+your **OpenWISP WiFi Login Pages** service.
+
+Assign a dedicated DNS name to be used by both systems: the captive portal
+and the web application which simulates it. Then configure your captive
+portal to resolve this DNS name to its IP, while the public DNS resolution
+should point to the mock app just created. This way captive portal login
+and logout requests will not hang, allowing users to view/modify their
+account data also from the public internet.
 
 ### License
 

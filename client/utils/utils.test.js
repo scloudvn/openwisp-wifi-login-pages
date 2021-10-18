@@ -1,8 +1,10 @@
 import React from "react";
+import {Router} from "react-router-dom";
 import axios from "axios";
 import {Cookies} from "react-cookie";
 import {shallow, mount} from "enzyme";
 import * as dependency from "react-toastify";
+import {createMemoryHistory} from "history";
 import authenticate from "./authenticate";
 import isInternalLink from "./check-internal-links";
 import customMerge from "./custom-merge";
@@ -20,6 +22,8 @@ import logError from "./log-error";
 import needsVerify from "./needs-verify";
 import loader from "./loader";
 import handleChange from "./handle-change";
+import redirectToPayment from "./redirect-to-payment";
+import {initialState} from "../reducers/organization";
 
 jest.mock("axios");
 jest.mock("./load-translation");
@@ -177,7 +181,7 @@ describe("Validate Token tests", () => {
     orgSlug: "default",
     cookies: new Cookies(),
     setUserData: jest.fn(),
-    userData: {is_active: true, is_verified: null, justAuthenticated: true},
+    userData: {is_active: true, is_verified: null, mustLogin: true},
     logout: jest.fn(),
   });
   it("should return false if token is not in the cookie", async () => {
@@ -302,9 +306,7 @@ describe("Validate Token tests", () => {
     );
     expect(setUserData.mock.calls.length).toBe(1);
     expect(console.log).toHaveBeenCalledWith(response);
-    expect(setUserData.mock.calls.pop()).toEqual([
-      {is_active: true, is_verified: null, justAuthenticated: true},
-    ]);
+    expect(setUserData.mock.calls.pop()).toEqual([initialState.userData]);
   });
 });
 describe("password-toggle tests", () => {
@@ -611,5 +613,21 @@ describe("handle-change tests", () => {
     instance.state.errors.nonField = "Email existw";
     handleChange(event, instance);
     expect(instance.state.errors).toEqual([]);
+  });
+  it("should redirecToPayment", () => {
+    const historyMock = createMemoryHistory();
+    const pushSpy = jest.spyOn(historyMock, "push");
+    const wrapper = shallow(
+      <Router history={historyMock}>
+        <button
+          type="submit"
+          onClick={() => redirectToPayment("default", historyMock)}
+        >
+          Test
+        </button>
+      </Router>,
+    );
+    wrapper.find("button").simulate("click", {});
+    expect(pushSpy).toHaveBeenCalled();
   });
 });

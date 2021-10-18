@@ -23,6 +23,9 @@ import Contact from "../contact-box";
 import Modal from "../modal";
 import getError from "../../utils/get-error";
 import getLanguageHeaders from "../../utils/get-language-headers";
+import redirectToPayment from "../../utils/redirect-to-payment";
+import InfoModal from "../../utils/modal";
+import history from "../../utils/history";
 
 const PhoneInput = React.lazy(() => import("react-phone-input-2"));
 
@@ -51,6 +54,7 @@ export default class Registration extends React.Component {
       country: "",
       countrySelected: {},
       hidePassword: true,
+      modalActive: false,
     };
     this.handleSubmit = this.handleSubmit.bind(this);
     this.handleChange = this.handleChange.bind(this);
@@ -88,9 +92,28 @@ export default class Registration extends React.Component {
     }
   }
 
+  async componentDidUpdate(prevProps) {
+    const {plans} = this.state;
+    const {settings, loading} = this.props;
+    const {setLoading} = this.context;
+    if (
+      settings.subscriptions &&
+      plans.length === 0 &&
+      loading === false &&
+      prevProps.loading === true
+    ) {
+      setLoading(true);
+    }
+  }
+
   handleChange(event) {
     handleChange(event, this);
   }
+
+  toggleModal = () => {
+    const {modalActive} = this.state;
+    this.setState({modalActive: !modalActive});
+  };
 
   handleSubmit(event) {
     const {setLoading} = this.context;
@@ -202,12 +225,23 @@ export default class Registration extends React.Component {
         toast.success(t`REGISTER_SUCCESS`, {
           toastId: mainToastId,
         });
+        // if requires_payment
+        // redirect to payment status component
+        if (postData.requires_payment === true) {
+          redirectToPayment(orgSlug);
+        }
         // will redirect to status which will validate data again
         // and initiate any verification if needed
         authenticate(true);
       })
       .catch((error) => {
-        const {data} = error.response;
+        const {data, status} = error.response;
+        if (status === 409) {
+          setLoading(false);
+          this.toggleModal();
+          this.setState({errors: {...errors, ...data}});
+          return;
+        }
         if ("billing_info" in data) {
           Object.keys(data.billing_info).forEach((key) => {
             data[key] = data.billing_info[key];
@@ -271,6 +305,7 @@ export default class Registration extends React.Component {
     /* disable ttag */
     const planTitle = gettext(plan.plan);
     const planDesc = gettext(plan.plan_description);
+    /* enable ttag */
     const pricingText = Number(plan.price)
       ? `${plan.price} ${plan.currency} ${plan.pricing}`
       : "";
@@ -333,6 +368,12 @@ export default class Registration extends React.Component {
       selectedPlan !== null &&
       plans[selectedPlan].requires_invoice === true
     );
+  };
+
+  handleResponse = (response) => {
+    const {orgSlug} = this.props;
+    if (response) return history.push(`/${orgSlug}/login`);
+    return this.toggleModal();
   };
 
   getForm = () => {
@@ -479,7 +520,7 @@ export default class Registration extends React.Component {
                           <label htmlFor="username">
                             {t`USERNAME_REG_LBL`}
                           </label>
-                          {getError(errors, "email")}
+                          {getError(errors, "username")}
                           <input
                             className={`input ${
                               errors.username ? "error" : ""
@@ -811,12 +852,40 @@ export default class Registration extends React.Component {
 
   render() {
     const {settings} = this.props;
-    const {plansFetched} = this.state;
+    const {plansFetched, modalActive, errors} = this.state;
 
     if (settings.subscriptions && !plansFetched) {
       return null;
     }
-    return this.getForm();
+    return (
+      <>
+        {errors.organizations && (
+          <InfoModal
+            active={modalActive}
+            toggleModal={this.toggleModal}
+            handleResponse={this.handleResponse}
+            content={
+              <div className="message">
+                <p>
+                  {errors.organizations.length === 0
+                    ? t`NO_ORGS`
+                    : t`CONFLICT_ORGS`}
+                </p>
+                <ul>
+                  {errors.organizations.map((org) => (
+                    <li key={org.slug} className="org-list">
+                      {org.name}
+                    </li>
+                  ))}
+                </ul>
+                <p>{t`CONFLICT_SIGNIN`}</p>
+              </div>
+            }
+          />
+        )}
+        {this.getForm()}
+      </>
+    );
   }
 }
 Registration.contextType = LoadingContext;
@@ -885,4 +954,5 @@ Registration.propTypes = {
   termsAndConditions: PropTypes.object.isRequired,
   authenticate: PropTypes.func.isRequired,
   setTitle: PropTypes.func.isRequired,
+  loading: PropTypes.bool.isRequired,
 };

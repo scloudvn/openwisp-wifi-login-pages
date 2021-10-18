@@ -10,9 +10,11 @@ import tick from "../../utils/tick";
 import getConfig from "../../utils/get-config";
 import Registration from "./registration";
 import mountComponent from "./test-utils";
+import redirectToPayment from "../../utils/redirect-to-payment";
 
 jest.mock("../../utils/get-config");
 jest.mock("axios");
+jest.mock("../../utils/redirect-to-payment");
 
 const createTestProps = function (props, configName = "default") {
   const config = getConfig(configName);
@@ -26,6 +28,7 @@ const createTestProps = function (props, configName = "default") {
     authenticate: jest.fn(),
     verifyMobileNumber: jest.fn(),
     setTitle: jest.fn(),
+    loading: false,
     match: {
       path: "default/registration",
     },
@@ -75,13 +78,13 @@ describe("test subscriptions", () => {
   let originalError;
   let lastConsoleOutuput;
   const event = {preventDefault: jest.fn()};
-  const initShallow = (passedProps) => {
+  const initShallow = (passedProps, context = loadingContextValue) => {
     Registration.contextTypes = {
       setLoading: PropTypes.func,
       getLoading: PropTypes.func,
     };
     return shallow(<Registration {...passedProps} />, {
-      context: loadingContextValue,
+      context,
     });
   };
 
@@ -213,7 +216,7 @@ describe("test subscriptions", () => {
     expect(wrapper.find("input[name='phone_number']").length).toBe(0);
   });
 
-  it("authenticate normally after registration with payment flow", async () => {
+  it("redirect to payment after registration with payment flow", async () => {
     const data = {payment_url: "https://account.openwisp.io/payment/123"};
     axios
       .mockImplementationOnce(() =>
@@ -240,8 +243,8 @@ describe("test subscriptions", () => {
     const mockVerify = registration.props.verifyMobileNumber;
     expect(mockVerify.mock.calls.length).toBe(0);
     const authenticateMock = registration.props.authenticate.mock;
+    expect(redirectToPayment).toHaveBeenCalledWith("default");
     expect(authenticateMock.calls.length).toBe(1);
-    expect(authenticateMock.calls.pop()).toEqual([true]);
   });
 
   it("should show error if fetching plans fail", async () => {
@@ -347,5 +350,27 @@ describe("test subscriptions", () => {
     expect(handleSubmit).toHaveBeenCalled();
     expect(jsonStringify.mock.calls[1][0].username).toBe("tester");
     expect(jsonStringify.mock.calls.length).toBe(2);
+  });
+
+  it("should show loader while fetching plans even if loading state changes", () => {
+    axios.mockImplementationOnce(() =>
+      Promise.resolve({
+        status: 201,
+        statusText: "ok",
+        data: plans,
+      }),
+    );
+    const setLoading = jest.fn();
+    wrapper = initShallow(
+      {...props, loading: true},
+      {
+        setLoading,
+        getLoading: jest.fn(),
+      },
+    );
+    const instance = wrapper.instance();
+    expect(instance.props.loading).toEqual(true);
+    wrapper.setProps({loading: false});
+    expect(setLoading).toHaveBeenCalledWith(true);
   });
 });

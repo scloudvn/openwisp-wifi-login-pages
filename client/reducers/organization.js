@@ -20,7 +20,11 @@ export const initialState = {
   userData: {
     is_active: true,
     is_verified: null,
-    justAuthenticated: true,
+    mustLogin: true,
+    mustLogout: false,
+    repeatLogin: false,
+    auth_token: undefined,
+    radius_user_token: undefined,
   },
   settings: {
     mobile_phone_verification: undefined,

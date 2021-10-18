@@ -13,6 +13,7 @@ import tick from "../../utils/tick";
 import Status from "./status";
 import validateToken from "../../utils/validate-token";
 import {initialState} from "../../reducers/organization";
+import Modal from "../../utils/modal";
 
 jest.mock("axios");
 jest.mock("../../utils/get-config");
@@ -196,11 +197,9 @@ describe("<Status /> interactions", () => {
     await tick();
     expect(wrapper.instance().state.activeSessions.length).toBe(1);
     expect(wrapper.instance().props.logout).toHaveBeenCalled();
-    expect(wrapper.instance().props.setUserData).toHaveBeenCalledWith({
-      is_active: true,
-      is_verified: null,
-      justAuthenticated: true,
-    });
+    expect(wrapper.instance().props.setUserData).toHaveBeenCalledWith(
+      initialState.userData,
+    );
   });
 
   it("test componentDidMount lifecycle method", async () => {
@@ -230,7 +229,7 @@ describe("<Status /> interactions", () => {
     jest.spyOn(Status.prototype, "getUserActiveRadiusSessions");
 
     props = createTestProps({
-      userData: {...responseData, justAuthenticated: true},
+      userData: {...responseData, mustLogin: true},
     });
     validateToken.mockReturnValue(true);
     const setLoading = jest.fn();
@@ -368,7 +367,7 @@ describe("<Status /> interactions", () => {
     wrapper.setProps({
       userData: {
         ...responseData,
-        justAuthenticated: true,
+        mustLogin: true,
         is_verified: false,
         method: "",
       },
@@ -430,6 +429,96 @@ describe("<Status /> interactions", () => {
     expect(toast.dismiss).toHaveBeenCalledWith("main_toast_id");
   });
 
+  it("test postMessage event listener firing", async () => {
+    props = createTestProps();
+    const events = {};
+    window.addEventListener = jest.fn((event, callback) => {
+      events[event] = callback;
+    });
+    wrapper = shallow(<Status {...props} />, {
+      context: {setLoading: jest.fn()},
+      disableLifecycleMethods: true,
+    });
+    const handlePostMessageMock = jest.fn();
+    wrapper.instance().handlePostMessage = handlePostMessageMock;
+    wrapper.instance().componentDidMount();
+
+    events.message({
+      origin: "http://localhost",
+      data: {message: "RADIUS Error", type: "authError"},
+    });
+    expect(handlePostMessageMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("test handlePostMessage authError", async () => {
+    props = createTestProps();
+    const setLoadingMock = jest.fn();
+    wrapper = shallow(<Status {...props} />, {
+      context: {setLoading: setLoadingMock},
+      disableLifecycleMethods: true,
+    });
+    jest.spyOn(toast, "error");
+    jest.spyOn(toast, "dismiss");
+    const status = wrapper.instance();
+
+    // Test missing message
+    status.handlePostMessage({
+      data: {type: "authError"},
+      origin: "http://localhost",
+    });
+    expect(toast.error).toHaveBeenCalledTimes(0);
+    expect(toast.dismiss).toHaveBeenCalledTimes(0);
+    expect(props.logout).toHaveBeenCalledTimes(0);
+    expect(setLoadingMock).toHaveBeenCalledTimes(0);
+
+    // Test missing type
+    status.handlePostMessage({
+      data: {message: "test"},
+      origin: "http://localhost",
+    });
+    expect(toast.error).toHaveBeenCalledTimes(0);
+    expect(toast.dismiss).toHaveBeenCalledTimes(0);
+    expect(props.logout).toHaveBeenCalledTimes(0);
+    expect(setLoadingMock).toHaveBeenCalledTimes(0);
+
+    // Test event.origin is illegal
+    status.handlePostMessage({
+      data: {message: "RADIUS Error", type: "authError"},
+      origin: "https://example.com",
+    });
+    expect(toast.error).toHaveBeenCalledTimes(0);
+    expect(toast.dismiss).toHaveBeenCalledTimes(0);
+    expect(props.logout).toHaveBeenCalledTimes(0);
+    expect(setLoadingMock).toHaveBeenCalledTimes(0);
+
+    // Test valid message
+    wrapper.instance().componentDidMount();
+    status.handlePostMessage({
+      data: {message: "RADIUS Error", type: "authError"},
+      origin: "http://localhost",
+    });
+    expect(toast.dismiss).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(props.logout).toHaveBeenCalledTimes(1);
+    expect(setLoadingMock).toHaveBeenCalledTimes(2);
+    expect(setLoadingMock).toHaveBeenLastCalledWith(false);
+  });
+
+  it("test handlePostMessage internet-mode", async () => {
+    props = createTestProps();
+    const setLoadingMock = jest.fn();
+    wrapper = shallow(<Status {...props} />, {
+      context: {setLoading: setLoadingMock},
+      disableLifecycleMethods: true,
+    });
+    const status = wrapper.instance();
+    status.handlePostMessage({
+      data: {type: "internet-mode"},
+      origin: "http://localhost",
+    });
+    expect(status.state.internetMode).toEqual(true);
+  });
+
   it("should not perform captive portal login (submit loginFormRef), if user is already authenticated", async () => {
     validateToken.mockReturnValue(true);
     props = createTestProps();
@@ -459,7 +548,7 @@ describe("<Status /> interactions", () => {
     validateToken.mockReturnValue(true);
     props = createTestProps();
     props.location.search = "";
-    props.userData = {...responseData, justAuthenticated: true};
+    props.userData = {...responseData, mustLogin: true};
     wrapper = shallow(<Status {...props} />, {
       context: {setLoading: jest.fn()},
     });
@@ -469,7 +558,7 @@ describe("<Status /> interactions", () => {
     await tick();
     expect(spyFn.mock.calls.length).toBe(1);
     expect(setUserDataMock.calls.pop()).toEqual([
-      {...props.userData, justAuthenticated: false},
+      {...props.userData, mustLogin: false},
     ]);
   });
 
@@ -599,7 +688,7 @@ describe("<Status /> interactions", () => {
     });
     jest.spyOn(window, "clearInterval");
     wrapper.instance().componentDidMount();
-    const {intervalId} = wrapper.instance().state;
+    const {intervalId} = wrapper.instance();
     wrapper.instance().componentWillUnmount();
     expect(clearInterval).toHaveBeenCalledWith(intervalId);
   });
@@ -655,7 +744,10 @@ describe("<Status /> interactions", () => {
     wrapper.setState({rememberMe: true});
     const handleLogout = jest.spyOn(wrapper.instance(), "handleLogout");
     wrapper.find(".logout input.button").simulate("click", {});
-    wrapper.find(".modal-buttons button:first-child").simulate("click", {});
+    const modalWrapper = wrapper.find(Modal).shallow();
+    modalWrapper
+      .find(".modal-buttons button:first-child")
+      .simulate("click", {});
     expect(handleLogout).toHaveBeenCalledWith(true);
   });
 
@@ -668,7 +760,8 @@ describe("<Status /> interactions", () => {
     wrapper.setState({rememberMe: true});
     const handleLogout = jest.spyOn(wrapper.instance(), "handleLogout");
     wrapper.find(".logout input.button").simulate("click", {});
-    wrapper.find(".modal-buttons button:last-child").simulate("click", {});
+    const modalWrapper = wrapper.find(Modal).shallow();
+    modalWrapper.find(".modal-buttons button:last-child").simulate("click", {});
     expect(handleLogout).toHaveBeenCalledWith(false);
   });
 
@@ -714,7 +807,7 @@ describe("<Status /> interactions", () => {
       is_verified: false,
       method: "bank_card",
       payment_url: "https://account.openwisp.io/payment/123",
-      justAuthenticated: true,
+      mustLogin: true,
     };
     props.location.search = "";
     props.settings.mobile_phone_verification = true;
@@ -734,7 +827,7 @@ describe("<Status /> interactions", () => {
     expect(spyFn.mock.calls.length).toBe(1);
     // ensure setUserData is called as expected
     expect(setUserDataMock.calls.pop()).toEqual([
-      {...props.userData, justAuthenticated: false},
+      {...props.userData, mustLogin: false},
     ]);
     expect(location.assign.mock.calls.length).toBe(0);
     expect(setLoading.mock.calls.length).toBe(1);
@@ -838,27 +931,19 @@ describe("<Status /> interactions", () => {
     await tick();
     expect(status.repeatLogin).toBe(true);
     await status.handleLogoutIframe();
-    jest.advanceTimersByTime(1000);
+    jest.runAllTimers();
     expect(status.state.loggedOut).toBe(false);
     expect(status.repeatLogin).toBe(false);
     expect(mockRef.submit.mock.calls.length).toBe(1);
     expect(handleLogout).toHaveBeenCalledWith(false, true);
-    expect(status.props.logout).not.toHaveBeenCalled();
-    expect(setLoading.mock.calls).toEqual([[true], [true], [true]]);
+    expect(status.props.logout).toHaveBeenCalled();
+    expect(setLoading.mock.calls).toEqual([[true], [true], [false]]);
     expect(Status.prototype.getUserActiveRadiusSessions.mock.calls.length).toBe(
       1,
     );
-    expect(componentDidMount.mock.calls.length).toBe(1);
+    expect(componentDidMount.mock.calls.length).toBe(0);
     expect(setUserData.mock.calls.length).toBe(1);
-    const userData = {
-      ...responseData,
-      justAuthenticated: true,
-      mustLogout: false,
-      repeatLogin: false,
-      radius_user_token: undefined,
-    };
-    expect(setUserData).toHaveBeenCalledWith(userData);
-    expect(status.props.userData).toStrictEqual(userData);
+    expect(setUserData).toHaveBeenCalledWith(initialState.userData);
     expect(spyToast.mock.calls.length).toBe(0);
   });
 
@@ -911,7 +996,8 @@ describe("<Status /> interactions", () => {
     status.componentDidMount();
 
     wrapper.find(".logout input.button").simulate("click", {});
-    wrapper.find(".modal-buttons button:last-child").simulate("click", {});
+    const modalWrapper = wrapper.find(Modal).shallow();
+    modalWrapper.find(".modal-buttons button:last-child").simulate("click", {});
     expect(handleLogout).toHaveBeenCalledWith(false);
     expect(location.assign.mock.calls.length).toBe(0);
     await tick();
@@ -1033,13 +1119,23 @@ describe("<Status /> interactions", () => {
     expect(result).toEqual();
     expect(getSessionInfo).not.toHaveBeenCalled();
   });
-  it("should call logout if getUserRadiusSessions is rejected", async () => {
+  it("should call logout if getUserRadiusSessions is rejected (unauthorized or forbidden)", async () => {
     axios.mockImplementationOnce(() =>
       Promise.reject({
         response: {
           status: 401,
           data: {
             error: "Unauthorized",
+          },
+        },
+      }),
+    );
+    axios.mockImplementationOnce(() =>
+      Promise.reject({
+        response: {
+          status: 403,
+          data: {
+            error: "Forbidden",
           },
         },
       }),
@@ -1066,6 +1162,13 @@ describe("<Status /> interactions", () => {
     });
     toast.error.mock.calls.pop()[1].onOpen();
     expect(toast.dismiss).toHaveBeenCalledWith("main_toast_id");
+    await wrapper.instance().getUserRadiusSessions();
+    expect(prop.logout).toHaveBeenCalledWith(expect.any(Object), "default");
+    expect(toast.error).toHaveBeenCalledWith("Error occurred!", {
+      onOpen: expect.any(Function),
+    });
+    toast.error.mock.calls.pop()[1].onOpen();
+    expect(toast.dismiss).toHaveBeenCalledWith("main_toast_id");
   });
   it("should return if repeatLogin is true in handleLogout", async () => {
     validateToken.mockReturnValue(true);
@@ -1080,6 +1183,42 @@ describe("<Status /> interactions", () => {
     expect(prop.setUserData).not.toHaveBeenCalled();
     expect(toast.success).not.toHaveBeenCalled();
     expect(result).toBe();
+  });
+  it("test handleLogout internetMode", async () => {
+    validateToken.mockReturnValue(true);
+    const prop = createTestProps();
+    const session = {start_time: "2021-07-08T00:22:28-04:00", stop_time: null};
+    const mockRef = {submit: jest.fn()};
+    wrapper = shallow(<Status {...prop} />, {
+      context: {setLoading: jest.fn()},
+      disableLifecycleMethods: true,
+    });
+    wrapper.instance().logoutFormRef = {current: mockRef};
+    wrapper
+      .instance()
+      .setState({sessionsToLogout: [session], activeSession: [session]});
+
+    // Test user logged in from internet(internetMode)
+    wrapper.instance().setState({internetMode: true});
+    wrapper.instance().handleLogout(true, true);
+    await tick();
+    expect(mockRef.submit).toHaveBeenCalledTimes(0);
+
+    // Test user logged in from WiFi
+    wrapper.instance().setState({internetMode: false});
+    wrapper.instance().handleLogout(true, true);
+    await tick();
+    expect(mockRef.submit).toHaveBeenCalledTimes(1);
+  });
+  it("should not display STATUS_CONTENT when logged in internetMode", () => {
+    const prop = createTestProps();
+    prop.isAuthenticated = true;
+    wrapper = shallow(<Status {...prop} />, {
+      context: {setLoading: jest.fn()},
+      disableLifecycleMethods: true,
+    });
+    wrapper.instance().setState({internetMode: true});
+    expect(wrapper.find("status-content").length).toEqual(0);
   });
   it("should return if loginIframe is not loaded", async () => {
     validateToken.mockReturnValue(true);
@@ -1228,5 +1367,63 @@ describe("<Status /> interactions", () => {
     await tick();
     wrapper.instance().handleLogoutIframe();
     expect(prop.setUserData).toHaveBeenCalledWith(initialState.userData);
+  });
+  it("should not logout user if network error happens while fetching radius sessions", async () => {
+    const response = {
+      response: {
+        status: 408,
+        data: {
+          error: "Timeout",
+        },
+      },
+    };
+    axios.mockImplementationOnce(() => Promise.reject(response));
+    validateToken.mockReturnValue(true);
+    const prop = createTestProps();
+    jest.spyOn(toast, "error");
+    jest.spyOn(toast, "dismiss");
+    wrapper = shallow(<Status {...prop} />, {
+      context: {setLoading: jest.fn()},
+      disableLifecycleMethods: true,
+    });
+    await wrapper.instance().getUserRadiusSessions();
+    expect(prop.logout).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(logError).toHaveBeenCalledWith(response, "Error occurred!");
+  });
+  it("should not concat same past session again", async () => {
+    const data = [
+      {
+        session_id: 1,
+        start_time: "2020-09-08T00:22:28-04:00",
+        stop_time: "2020-09-08T00:22:29-04:00",
+      },
+    ];
+    axios
+      .mockImplementationOnce(() =>
+        Promise.resolve({
+          status: 200,
+          statusText: "OK",
+          data,
+          headers: {},
+        }),
+      )
+      .mockImplementationOnce(() =>
+        Promise.resolve({
+          status: 200,
+          statusText: "OK",
+          data,
+          headers: {},
+        }),
+      );
+    const prop = createTestProps();
+    wrapper = shallow(<Status {...prop} />, {
+      context: {setLoading: jest.fn()},
+      disableLifecycleMethods: true,
+    });
+    await wrapper.instance().getUserPassedRadiusSessions();
+    expect(wrapper.instance().state.pastSessions).toEqual(data);
+    await wrapper.instance().getUserPassedRadiusSessions();
+    expect(wrapper.instance().state.pastSessions).toEqual(data);
   });
 });

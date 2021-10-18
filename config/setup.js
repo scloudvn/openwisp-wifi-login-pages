@@ -19,6 +19,13 @@ const serverConfigs = [];
 const organizations = [];
 const defaultConfigFile = path.join(internalConfigDir, "default.yml");
 
+// eslint-disable-next-line consistent-return
+const customizer = (objValue, srcValue) => {
+  if (_.isArray(objValue) && _.isArray(srcValue)) return srcValue;
+};
+
+const merge = (origObj, srcObj) => _.mergeWith(origObj, srcObj, customizer);
+
 const removeNullKeys = (obj) => {
   const object = obj;
   Object.entries(object).forEach(([k, v]) => {
@@ -75,7 +82,7 @@ const getConfig = (filePath) => {
       yaml.load(fs.readFileSync(defaultConfigFile, "utf-8")),
     );
   const config = yaml.load(fs.readFileSync(filePath, "utf-8"));
-  return removeNullKeys(_.merge(defaultConfig, config));
+  return removeNullKeys(merge(defaultConfig, config));
 };
 
 const getModalContent = (config, modalKey, modalName, configDirPath) => {
@@ -179,7 +186,7 @@ const writeConfigurations = () => {
       try {
         const config = getConfig(configPath);
         createConfig(config, configDirPath);
-        // different configurations for same radius organization
+        // variants configurations
         fs.readdirSync(configDirPath).forEach((customFile) => {
           if (
             path.extname(customFile) === ".yml" &&
@@ -187,7 +194,7 @@ const writeConfigurations = () => {
           ) {
             try {
               const customConfig = removeNullKeys(
-                _.merge(
+                merge(
                   getConfig(configPath),
                   yaml.load(
                     fs.readFileSync(
@@ -197,11 +204,17 @@ const writeConfigurations = () => {
                   ),
                 ),
               );
-              customConfig.slug = `${file}-${path.basename(
-                customFile,
-                path.extname(customFile),
-              )}`;
-              createConfig(customConfig, configDirPath, file);
+              if (config.slug === customConfig.slug) {
+                // for same radius organization
+                customConfig.slug = `${file}-${path.basename(
+                  customFile,
+                  path.extname(customFile),
+                )}`;
+                createConfig(customConfig, configDirPath, file);
+              } else {
+                // for new organization
+                createConfig(customConfig, configDirPath);
+              }
             } catch (error) {
               console.log(error);
             }
