@@ -4,8 +4,7 @@
 
 [![Build Status](https://github.com/openwisp/openwisp-wifi-login-pages/workflows/OpenWisp%20WiFi%20Login%20Pages%20CI%20BUILD/badge.svg?branch=master)](https://github.com/openwisp/openwisp-wifi-login-pages/actions)
 [![Coverage Status](https://coveralls.io/repos/github/openwisp/openwisp-wifi-login-pages/badge.svg)](https://coveralls.io/github/openwisp/openwisp-wifi-login-pages)
-[![Dependencies Status](https://david-dm.org/openwisp/openwisp-wifi-login-pages/status.svg)](https://david-dm.org/openwisp/openwisp-wifi-login-pages)
-[![devDependencies Status](https://david-dm.org/openwisp/openwisp-wifi-login-pages/dev-status.svg)](https://david-dm.org/openwisp/openwisp-wifi-login-pages?type=dev)
+[![Dependency Monitoring](https://img.shields.io/librariesio/release/github/openwisp/openwisp-wifi-login-pages)](https://libraries.io/github/openwisp/openwisp-wifi-login-pages#repository_dependencies)
 
 <p align="center">
   <img src="https://github.com/openwisp/openwisp-wifi-login-pages/raw/master/docs/login-desktop.png" alt="login">
@@ -899,6 +898,13 @@ Make sure that all these extra javascript files are be present in the
 These scripts are loaded only after the rest of the page has finished loading.
 
 This feature can be used to load non-critical custom Javascript code.
+
+### Support for old browsers
+
+Polyfills are used to support old browsers on different platforms.
+It is recommended to add **polyfill.io** to the allowed hostnames
+(walled garden) of the captive portal, otherwise the application will not
+be able to load in old browsers.
 
 ### License
 
