@@ -72,7 +72,11 @@ export const getPhoneToken = () => {
 
 export const urls = {
   registration: `http://0.0.0.0:8080/${orgSlug}/registration`,
+  registrationTos: `http://0.0.0.0:8080/${orgSlug}/registration/terms-and-conditions`,
+  registrationPrivacy: `http://0.0.0.0:8080/${orgSlug}/registration/privacy-policy`,
   login: `http://0.0.0.0:8080/${orgSlug}/login`,
+  loginTos: `http://0.0.0.0:8080/${orgSlug}/login/terms-and-conditions`,
+  loginPrivacy: `http://0.0.0.0:8080/${orgSlug}/login/privacy-policy`,
   status: `http://0.0.0.0:8080/${orgSlug}/status`,
   passwordChange: `http://0.0.0.0:8080/${orgSlug}/change-password`,
   passwordReset: `http://0.0.0.0:8080/${orgSlug}/password/reset`,
@@ -89,4 +93,4 @@ export const successToastSelector = ".Toastify__toast--success div[role=alert]";
 
 // increase the jest global test time out
 // because browser tests can take a bit longer to complete
-jest.setTimeout(10000);
+jest.setTimeout(20000);

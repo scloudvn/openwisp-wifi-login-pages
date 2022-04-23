@@ -1,40 +1,34 @@
 import axios from "axios";
-import cookie from "cookie-signature";
 import merge from "deepmerge";
-import qs from "qs";
-
 import config from "../config.json";
 import defaultConfig from "../utils/default-config";
 import {logResponseError} from "../utils/logger";
 import reverse from "../utils/openwisp-urls";
 import getSlug from "../utils/get-slug";
 
-const validateToken = (req, res) => {
+const payments = (req, res) => {
   const reqOrg = req.params.organization;
+  const reqPaymentId = req.params.paymentId;
   const validSlug = config.some((org) => {
     if (org.slug === reqOrg) {
       // merge default config and custom config
       const conf = merge(defaultConfig, org);
       const {host} = conf;
-      const validateTokenUrl = reverse("validate_auth_token", getSlug(conf));
+      const paymentUrl = reverse("payment_status", getSlug(conf)).replace(
+        "{paymentId}",
+        reqPaymentId,
+      );
       const timeout = conf.timeout * 1000;
-      let {token} = req.body;
-      // decrypt authToken in cookie unless:
-      //   - authToken is being stored in sessionStorage
-      //   - or authToken is not signed (passed via redux)
-      if (req.body.session === "false" && token.includes(".")) {
-        token = cookie.unsign(token, conf.secret_key);
-      }
       // make AJAX request
       axios({
-        method: "post",
+        method: "get",
         headers: {
           "content-type": "application/x-www-form-urlencoded",
           "accept-language": req.headers["accept-language"],
+          Authorization: req.headers.authorization,
         },
-        url: `${host}${validateTokenUrl}/`,
+        url: `${host}${paymentUrl}/`,
         timeout,
-        data: qs.stringify({token}),
       })
         .then((response) => {
           res
@@ -67,4 +61,4 @@ const validateToken = (req, res) => {
   }
 };
 
-export default validateToken;
+export default payments;

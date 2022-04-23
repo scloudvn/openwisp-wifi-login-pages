@@ -30,8 +30,9 @@ import getLanguageHeaders from "../../utils/get-language-headers";
 import redirectToPayment from "../../utils/redirect-to-payment";
 import {localStorage, sessionStorage} from "../../utils/storage";
 
-const PhoneInput = React.lazy(() => import("react-phone-input-2"));
-
+const PhoneInput = React.lazy(() =>
+  import(/* webpackChunkName: 'PhoneInput' */ "react-phone-input-2"),
+);
 export default class Login extends React.Component {
   constructor(props) {
     super(props);
@@ -50,7 +51,10 @@ export default class Login extends React.Component {
   componentDidMount() {
     const username = getParameterByName("username");
     const token = getParameterByName("token");
-    const {loginForm, setTitle, orgName, orgSlug} = this.props;
+    const {loginForm, setTitle, orgName, orgSlug, settings} = this.props;
+    const sesame_token = getParameterByName(
+      settings.passwordless_auth_token_name,
+    );
     setTitle(t`LOGIN`, orgName);
     let remember_me;
 
@@ -81,6 +85,11 @@ export default class Login extends React.Component {
         },
         true,
       );
+    }
+
+    // password-less authentication
+    if (sesame_token) {
+      this.handleSubmit(null, sesame_token);
     }
   }
 
@@ -190,7 +199,7 @@ export default class Login extends React.Component {
     handleChange(event, this);
   }
 
-  handleSubmit(event) {
+  handleSubmit(event, sesame_token = null) {
     const {setLoading} = this.context;
     if (event) event.preventDefault();
     const {orgSlug, setUserData, language, settings} = this.props;
@@ -201,16 +210,22 @@ export default class Login extends React.Component {
       errors: {},
     });
     setLoading(true);
-    this.waitToast = toast.info(t`PLEASE_WAIT`, {autoClose: 20000});
+    if (!sesame_token) {
+      this.waitToast = toast.info(t`PLEASE_WAIT`, {autoClose: 20000});
+    }
     if (radius_realms && username.includes("@")) {
       return this.realmsRadiusLoginForm.current.submit();
     }
+    const headers = {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept-language": getLanguageHeaders(language),
+    };
+    if (sesame_token) {
+      headers.Authorization = `${settings.passwordless_auth_token_name} ${sesame_token}`;
+    }
     return axios({
       method: "post",
-      headers: {
-        "content-type": "application/x-www-form-urlencoded",
-        "accept-language": getLanguageHeaders(language),
-      },
+      headers,
       url,
       data: qs.stringify({
         username,
@@ -286,7 +301,9 @@ export default class Login extends React.Component {
     toast.success(t`LOGIN_SUCCESS`, {
       toastId: mainToastId,
     });
-    setUserData({...data, mustLogin: true});
+    const {key: auth_token} = data;
+    delete data.key; // eslint-disable-line no-param-reassign
+    setUserData({...data, auth_token, mustLogin: true});
     // if requires payment redirect to payment status component
     if (data.method === "bank_card" && data.is_verified === false) {
       redirectToPayment(orgSlug);
@@ -548,6 +565,7 @@ Login.propTypes = {
     radius_realms: PropTypes.bool,
     mobile_phone_verification: PropTypes.bool,
     subscriptions: PropTypes.bool,
+    passwordless_auth_token_name: PropTypes.string,
   }).isRequired,
   setTitle: PropTypes.func.isRequired,
   captivePortalLoginForm: PropTypes.shape({

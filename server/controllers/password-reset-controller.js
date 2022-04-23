@@ -4,7 +4,7 @@ import qs from "qs";
 
 import config from "../config.json";
 import defaultConfig from "../utils/default-config";
-import Logger from "../utils/logger";
+import {logResponseError} from "../utils/logger";
 import reverse from "../utils/openwisp-urls";
 import getSlug from "../utils/get-slug";
 
@@ -17,7 +17,7 @@ const passwordReset = (req, res) => {
       const {host} = conf;
       const resetUrl = reverse("password_reset", getSlug(conf));
       const timeout = conf.timeout * 1000;
-      const {email} = req.body;
+      const {input} = req.body;
 
       // make AJAX request
       axios({
@@ -28,7 +28,7 @@ const passwordReset = (req, res) => {
         },
         url: `${host}${resetUrl}/`,
         timeout,
-        data: qs.stringify({email}),
+        data: qs.stringify({input}),
       })
         .then((response) => {
           // forward response
@@ -38,7 +38,7 @@ const passwordReset = (req, res) => {
             .send(response.data);
         })
         .catch((error) => {
-          Logger.error(error);
+          logResponseError(error);
           // forward error
           try {
             res
@@ -46,7 +46,6 @@ const passwordReset = (req, res) => {
               .type("application/json")
               .send(error.response.data);
           } catch (err) {
-            Logger.error(err);
             res.status(500).type("application/json").send({
               detail: "Internal server error",
             });

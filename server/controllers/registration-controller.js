@@ -3,7 +3,7 @@ import merge from "deepmerge";
 
 import config from "../config.json";
 import defaultConfig from "../utils/default-config";
-import Logger from "../utils/logger";
+import {logResponseError} from "../utils/logger";
 import reverse from "../utils/openwisp-urls";
 import getSlug from "../utils/get-slug";
 import sendCookies from "../utils/send-cookies";
@@ -56,9 +56,9 @@ const registration = (req, res) => {
         timeout,
         data: postData,
       })
-        .then((response) => sendCookies(username, response, conf, res))
+        .then((response) => sendCookies(response, conf, res, username))
         .catch((error) => {
-          Logger.error(error);
+          logResponseError(error);
           // forward error
           try {
             res
@@ -66,7 +66,6 @@ const registration = (req, res) => {
               .type("application/json")
               .send(error.response.data);
           } catch (err) {
-            Logger.error(err);
             res.status(500).type("application/json").send({
               detail: "Internal server error",
             });

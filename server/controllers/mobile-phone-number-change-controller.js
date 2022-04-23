@@ -1,11 +1,10 @@
 import axios from "axios";
-import cookie from "cookie-signature";
 import merge from "deepmerge";
 import qs from "qs";
 
 import config from "../config.json";
 import defaultConfig from "../utils/default-config";
-import Logger from "../utils/logger";
+import {logResponseError} from "../utils/logger";
 import reverse from "../utils/openwisp-urls";
 import getSlug from "../utils/get-slug";
 
@@ -18,20 +17,18 @@ const mobilePhoneNumberChange = (req, res) => {
       const {host} = conf;
       const url = reverse("mobile_phone_number_change", getSlug(conf));
       const timeout = conf.timeout * 1000;
-      let {token} = req.body;
-      if (req.body.session === "false")
-        token = cookie.unsign(token, conf.secret_key);
+      const token = req.headers.authorization.split(" ");
       // make AJAX request
       axios({
         method: "post",
         headers: {
           "content-type": "application/x-www-form-urlencoded",
-          Authorization: `Bearer ${token}`,
+          Authorization: req.headers.authorization,
           "accept-language": req.headers["accept-language"],
         },
         url: `${host}${url}/`,
         timeout,
-        data: qs.stringify({phone_number: req.body.phone_number}),
+        data: qs.stringify({token, phone_number: req.body.phone_number}),
       })
         .then((response) => {
           res
@@ -40,7 +37,7 @@ const mobilePhoneNumberChange = (req, res) => {
             .send(response.data);
         })
         .catch((error) => {
-          Logger.error(error);
+          logResponseError(error);
           // forward error
           try {
             res
@@ -48,7 +45,6 @@ const mobilePhoneNumberChange = (req, res) => {
               .type("application/json")
               .send(error.response.data);
           } catch (err) {
-            Logger.error(err);
             res.status(500).type("application/json").send({
               response_code: "INTERNAL_SERVER_ERROR",
             });

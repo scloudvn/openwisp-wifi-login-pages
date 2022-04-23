@@ -16,7 +16,6 @@ import Contact from "../contact-box";
 import LoadingContext from "../../utils/loading-context";
 import logError from "../../utils/log-error";
 import handleChange from "../../utils/handle-change";
-import handleSession from "../../utils/session";
 import validateToken from "../../utils/validate-token";
 import getError from "../../utils/get-error";
 import getLanguageHeaders from "../../utils/get-language-headers";
@@ -41,11 +40,26 @@ export default class PasswordChange extends React.Component {
 
   async componentDidMount() {
     const {setLoading} = this.context;
-    const {setTitle, orgName, cookies, userData, setUserData, logout, orgSlug} =
-      this.props;
+    const {
+      setTitle,
+      orgName,
+      cookies,
+      userData,
+      setUserData,
+      logout,
+      orgSlug,
+      language,
+    } = this.props;
     setLoading(true);
     setTitle(t`PWD_CHANGE_TITL`, orgName);
-    await validateToken(cookies, orgSlug, setUserData, userData, logout);
+    await validateToken(
+      cookies,
+      orgSlug,
+      setUserData,
+      userData,
+      logout,
+      language,
+    );
     setLoading(false);
   }
 
@@ -53,9 +67,7 @@ export default class PasswordChange extends React.Component {
     const {setLoading} = this.context;
 
     if (e) e.preventDefault();
-    const {orgSlug, cookies, language} = this.props;
-    const authToken = cookies.get(`${orgSlug}_auth_token`);
-    const {token, session} = handleSession(orgSlug, authToken, cookies);
+    const {orgSlug, language, userData} = this.props;
     const url = passwordChangeApiUrl.replace("{orgSlug}", orgSlug);
     const {currentPassword, newPassword1, newPassword2} = this.state;
     if (newPassword1 !== newPassword2) {
@@ -81,14 +93,13 @@ export default class PasswordChange extends React.Component {
       headers: {
         "content-type": "application/x-www-form-urlencoded",
         "accept-language": getLanguageHeaders(language),
+        Authorization: `Bearer ${userData.auth_token}`,
       },
       url,
       data: qs.stringify({
         currentPassword,
         newPassword1,
         newPassword2,
-        token,
-        session,
       }),
     })
       .then((response) => {

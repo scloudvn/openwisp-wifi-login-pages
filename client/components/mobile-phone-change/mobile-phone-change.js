@@ -18,12 +18,13 @@ import logError from "../../utils/log-error";
 import handleChange from "../../utils/handle-change";
 import submitOnEnter from "../../utils/submit-on-enter";
 import Contact from "../contact-box";
-import handleSession from "../../utils/session";
 import validateToken from "../../utils/validate-token";
 import getError from "../../utils/get-error";
 import getLanguageHeaders from "../../utils/get-language-headers";
 
-const PhoneInput = React.lazy(() => import("react-phone-input-2"));
+const PhoneInput = React.lazy(() =>
+  import(/* webpackChunkName: 'PhoneInput' */ "react-phone-input-2"),
+);
 
 class MobilePhoneChange extends React.Component {
   constructor(props) {
@@ -38,7 +39,7 @@ class MobilePhoneChange extends React.Component {
 
   async componentDidMount() {
     const {setLoading} = this.context;
-    const {cookies, orgSlug, setUserData, logout, setTitle, orgName} =
+    const {cookies, orgSlug, setUserData, logout, setTitle, orgName, language} =
       this.props;
     setLoading(true);
     setTitle(t`PHONE_CHANGE_TITL`, orgName);
@@ -49,6 +50,7 @@ class MobilePhoneChange extends React.Component {
       setUserData,
       userData,
       logout,
+      language,
     );
     if (isValid) {
       ({userData} = this.props);
@@ -61,11 +63,9 @@ class MobilePhoneChange extends React.Component {
   handleSubmit(event) {
     event.preventDefault();
     const {setLoading} = this.context;
-    const {cookies, orgSlug, setUserData, userData, language} = this.props;
+    const {orgSlug, setUserData, userData, language} = this.props;
     const {phone_number, errors} = this.state;
     const url = mobilePhoneChangeUrl(orgSlug);
-    const auth_token = cookies.get(`${orgSlug}_auth_token`);
-    const {token, session} = handleSession(orgSlug, auth_token, cookies);
     const self = this;
     this.setState({errors: {...errors, phone_number: ""}});
     setLoading(true);
@@ -74,12 +74,11 @@ class MobilePhoneChange extends React.Component {
       headers: {
         "content-type": "application/x-www-form-urlencoded",
         "accept-language": getLanguageHeaders(language),
+        Authorization: `Bearer ${userData.auth_token}`,
       },
       url,
       data: qs.stringify({
         phone_number,
-        token,
-        session,
       }),
     })
       .then(() => {

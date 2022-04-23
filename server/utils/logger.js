@@ -1,4 +1,5 @@
 import winston from "winston";
+import SentryTransport from "winston-transport-sentry-node";
 import logFilePath from "../loggerConfig";
 
 const levels = {
@@ -83,5 +84,44 @@ const Logger = winston.createLogger({
     new winston.transports.File({filename: logFilePath.error}),
   ],
 });
+
+/* eslint-disable global-require */
+/* eslint-disable import/no-unresolved */
+try {
+  const sentryConfig = require("../../sentry-env.json");
+  Logger.add(
+    new SentryTransport({
+      sentry: sentryConfig.sentryTransportLogger.sentry,
+      level: sentryConfig.sentryTransportLogger.level,
+      levelsMap: sentryConfig.sentryTransportLogger.levelsMap,
+      format: winston.format.combine(
+        format,
+        winston.format.uncolorize({raw: false}),
+      ),
+    }),
+  );
+} catch (error) {
+  // no op
+}
+
+export const logResponseError = (error) => {
+  try {
+    if (error.response) {
+      const {status, data, config} = error.response;
+      if (status >= 500) Logger.error(error.response);
+      else
+        Logger.info(
+          `Request to ${config.url} failed with ${status}:\n${JSON.stringify(
+            data,
+          )}`,
+        );
+    } else if (error.request) {
+      // The request was made but no response was received
+      Logger.error({error, request: error.request});
+    } else Logger.error(error.message);
+  } catch (err) {
+    Logger.error(err);
+  }
+};
 
 export default Logger;

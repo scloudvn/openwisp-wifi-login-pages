@@ -1,9 +1,8 @@
 import axios from "axios";
-import cookie from "cookie-signature";
 import merge from "deepmerge";
 import config from "../config.json";
 import defaultConfig from "../utils/default-config";
-import Logger from "../utils/logger";
+import {logResponseError} from "../utils/logger";
 import reverse from "../utils/openwisp-urls";
 import getSlug from "../utils/get-slug";
 
@@ -19,15 +18,12 @@ const getUserRadiusSessions = (req, res) => {
         getSlug(conf),
       );
       const timeout = conf.timeout * 1000;
-      let {token} = req.query;
-      if (req.query.session === "false")
-        token = cookie.unsign(token, conf.secret_key);
       // make AJAX request
       axios({
         method: "get",
         headers: {
           "content-type": "application/x-www-form-urlencoded",
-          Authorization: `Bearer ${token}`,
+          Authorization: req.headers.authorization,
           "accept-language": req.headers["accept-language"],
         },
         url: `${host}${userRadiusSessionsUrl}/`,
@@ -44,7 +40,7 @@ const getUserRadiusSessions = (req, res) => {
             .send(response.data);
         })
         .catch((error) => {
-          Logger.error(error);
+          logResponseError(error);
           // forward error
           try {
             res
@@ -52,7 +48,6 @@ const getUserRadiusSessions = (req, res) => {
               .type("application/json")
               .send(error.response.data);
           } catch (err) {
-            Logger.error(err);
             res.status(500).type("application/json").send({
               response_code: "INTERNAL_SERVER_ERROR",
             });

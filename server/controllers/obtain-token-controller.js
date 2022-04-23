@@ -4,7 +4,7 @@ import qs from "qs";
 
 import config from "../config.json";
 import defaultConfig from "../utils/default-config";
-import Logger from "../utils/logger";
+import {logResponseError} from "../utils/logger";
 import reverse from "../utils/openwisp-urls";
 import getSlug from "../utils/get-slug";
 import sendCookies from "../utils/send-cookies";
@@ -19,28 +19,30 @@ const obtainToken = (req, res) => {
       const obtainTokenUrl = reverse("user_auth_token", getSlug(conf));
       const timeout = conf.timeout * 1000;
       const {username, password} = req.body;
+      const headers = {
+        "content-type": "application/x-www-form-urlencoded",
+        "accept-language": req.headers["accept-language"],
+      };
+      if (req.headers.authorization)
+        headers.Authorization = req.headers.authorization;
       // make AJAX request
       axios({
         method: "post",
-        headers: {
-          "content-type": "application/x-www-form-urlencoded",
-          "accept-language": req.headers["accept-language"],
-        },
+        headers,
         url: `${host}${obtainTokenUrl}/`,
         timeout,
         data: qs.stringify({username, password}),
       })
-        .then((response) => sendCookies(username, response, conf, res))
+        .then((response) => sendCookies(response, conf, res))
         .catch((error) => {
-          Logger.error(error);
+          logResponseError(error);
           try {
-            Logger.warn(`status code: ${error.response.status}`);
             // unverified user recognized
             if (
               error.response.status === 401 &&
               error.response.data.is_active
             ) {
-              return sendCookies(username, error.response, conf, res);
+              return sendCookies(error.response, conf, res);
             }
             // forward error
             return res
@@ -48,7 +50,6 @@ const obtainToken = (req, res) => {
               .type("application/json")
               .send(error.response.data);
           } catch (err) {
-            Logger.error(err);
             return res.status(500).type("application/json").send({
               detail: "Internal server error",
             });

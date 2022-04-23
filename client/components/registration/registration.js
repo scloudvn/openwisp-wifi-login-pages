@@ -27,7 +27,9 @@ import redirectToPayment from "../../utils/redirect-to-payment";
 import InfoModal from "../../utils/modal";
 import history from "../../utils/history";
 
-const PhoneInput = React.lazy(() => import("react-phone-input-2"));
+const PhoneInput = React.lazy(() =>
+  import(/* webpackChunkName: 'PhoneInput' */ "react-phone-input-2"),
+);
 
 export default class Registration extends React.Component {
   constructor(props) {
@@ -118,7 +120,7 @@ export default class Registration extends React.Component {
   handleSubmit(event) {
     const {setLoading} = this.context;
     event.preventDefault();
-    const {orgSlug, authenticate, settings, language} = this.props;
+    const {orgSlug, authenticate, settings, language, setUserData} = this.props;
     const {
       phone_number,
       email,
@@ -213,7 +215,13 @@ export default class Registration extends React.Component {
       url,
       data: body,
     })
-      .then(() => {
+      .then((res = {}) => {
+        if (!res && !res.data) throw new Error();
+        const {key: auth_token} = res.data;
+        setUserData({
+          is_verified: false,
+          auth_token,
+        });
         this.setState({
           errors: {},
           phone_number: "",
@@ -236,6 +244,11 @@ export default class Registration extends React.Component {
       })
       .catch((error) => {
         const {data, status} = error.response;
+        if (status === 404) {
+          setLoading(false);
+          toast.error(t`404_PG_TITL`);
+          return;
+        }
         if (status === 409) {
           setLoading(false);
           this.toggleModal();
@@ -956,5 +969,6 @@ Registration.propTypes = {
   termsAndConditions: PropTypes.object.isRequired,
   authenticate: PropTypes.func.isRequired,
   setTitle: PropTypes.func.isRequired,
+  setUserData: PropTypes.func.isRequired,
   loading: PropTypes.bool.isRequired,
 };

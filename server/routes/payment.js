@@ -1,9 +1,9 @@
 import {Router} from "express";
-import modalContent from "../controllers/modal-content-controller";
+import payments from "../controllers/payments-controller";
 import errorHandler from "../utils/error-handler";
 
 const router = Router({mergeParams: true});
 
-router.get("/", errorHandler(modalContent));
+router.post("/status/:paymentId", errorHandler(payments));
 
 export default router;

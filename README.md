@@ -7,13 +7,19 @@
 [![Dependency Monitoring](https://img.shields.io/librariesio/release/github/openwisp/openwisp-wifi-login-pages)](https://libraries.io/github/openwisp/openwisp-wifi-login-pages#repository_dependencies)
 
 <p align="center">
-  <img src="https://github.com/openwisp/openwisp-wifi-login-pages/raw/master/docs/login-desktop.png" alt="login">
+  <img src="https://github.com/openwisp/openwisp-wifi-login-pages/raw/media/docs/login-desktop.png" alt="">
 </p>
 <p align="center">
-  <img src="https://github.com/openwisp/openwisp-wifi-login-pages/raw/master/docs/sign-up-mobile.png" alt="sign-up">
+  <img src="https://github.com/openwisp/openwisp-wifi-login-pages/raw/media/docs/sign-up-desktop.png" alt="">
 </p>
 <p align="center">
-  <img src="https://github.com/openwisp/openwisp-wifi-login-pages/raw/master/docs/verify-mobile-phone-mobile.png" alt="verify mobile phone number">
+  <img src="https://github.com/openwisp/openwisp-wifi-login-pages/raw/media/docs/verify-mobile-phone-desktop.png" alt="">
+</p>
+<p align="center">
+  <img src="https://github.com/openwisp/openwisp-wifi-login-pages/raw/media/docs/login-mobile.png" alt="">
+</p>
+<p align="center">
+  <img src="https://github.com/openwisp/openwisp-wifi-login-pages/raw/media/docs/signup-mobile.png" alt="">
 </p>
 
 **No more ugly and fragmented User Experience for public/private WiFi services!**
@@ -68,7 +74,7 @@ An ansible role which can be used to deploy and maintain this app is available, 
 
 ### Prerequisites
 
-- [NodeJs](https://nodejs.org/en/) >= 12.0.0
+- [NodeJs](https://nodejs.org/en/) >= 16.0.0
 - [NPM](https://npmjs.org/) - Node package manager >= 6.9.0
 - [yarn](https://yarnpkg.com/) - Yarn package manager >= 1.19.0
 
@@ -905,6 +911,39 @@ Polyfills are used to support old browsers on different platforms.
 It is recommended to add **polyfill.io** to the allowed hostnames
 (walled garden) of the captive portal, otherwise the application will not
 be able to load in old browsers.
+
+### Configuring Sentry for proxy server
+
+You can enable sentry logging for the proxy server by adding `sentry-env.json` in the
+root folder. The `sentry-env.json` file should contain configuration as following:
+
+```js
+{
+  ...
+  "sentryTransportLogger": {
+    // These options are passed to sentry SDK. Read more about available
+    // options at https://github.com/aandrewww/winston-transport-sentry-node#sentry-common-options
+    "sentry": {
+      "dsn": "https://examplePublicKey@o0.ingest.sentry.io/0"
+    },
+    // Following options are related to Winston's SentryTransport. You can read
+    // more at https://github.com/aandrewww/winston-transport-sentry-node#transport-related-options
+    "level": "warn",
+    "levelsMap": {
+      "silly": "debug",
+      "verbose": "debug",
+      "info": "info",
+      "debug": "debug",
+      "warn": "warning",
+      "error": "error"
+    }
+  }
+  ...
+}
+```
+
+**Note:** You can take reference from
+[sentry-env.sample.json](https://github.com/openwisp/openwisp-wifi-login-pages/blob/master/sentry-env.sample.json)
 
 ### License
 

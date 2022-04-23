@@ -1,10 +1,9 @@
 import axios from "axios";
-import cookie from "cookie-signature";
 import merge from "deepmerge";
 
 import config from "../config.json";
 import defaultConfig from "../utils/default-config";
-import Logger from "../utils/logger";
+import {logResponseError} from "../utils/logger";
 import reverse from "../utils/openwisp-urls";
 import getSlug from "../utils/get-slug";
 
@@ -17,16 +16,15 @@ const passwordChange = (req, res) => {
       const {host} = conf;
       const url = reverse("password_change", getSlug(conf));
       const timeout = conf.timeout * 1000;
-      const {currentPassword, newPassword1, newPassword2, session} = req.body;
-      let {token} = req.body;
-      if (session === "false") token = cookie.unsign(token, conf.secret_key);
+      const {currentPassword, newPassword1, newPassword2} = req.body;
+      const {authorization: token} = req.headers;
       if (token) {
         // make AJAX request
         axios({
           method: "post",
           headers: {
             "content-type": "application/json",
-            Authorization: `Bearer ${token}`,
+            Authorization: req.headers.authorization,
             "accept-language": req.headers["accept-language"],
           },
           url: `${host}${url}/`,
@@ -45,16 +43,14 @@ const passwordChange = (req, res) => {
               .send(response.data);
           })
           .catch((error) => {
-            Logger.error(error);
+            logResponseError(error);
             // forward error
             try {
-              console.log(error.response.data);
               res
                 .status(error.response.status)
                 .type("application/json")
                 .send(error.response.data);
             } catch (err) {
-              Logger.error(err);
               res.status(500).type("application/json").send({
                 detail: "Internal server error",
               });

@@ -18,7 +18,6 @@ import getText from "../../utils/get-text";
 import logError from "../../utils/log-error";
 import Contact from "../contact-box";
 import shouldLinkBeShown from "../../utils/should-link-be-shown";
-import handleSession from "../../utils/session";
 import validateToken from "../../utils/validate-token";
 import needsVerify from "../../utils/needs-verify";
 import Loader from "../../utils/loader";
@@ -26,6 +25,8 @@ import {initialState} from "../../reducers/organization";
 import {Logout} from "../organization-wrapper/lazy-import";
 import InfoModal from "../../utils/modal";
 import {localStorage} from "../../utils/storage";
+import history from "../../utils/history";
+import handleSession from "../../utils/session";
 
 export default class Status extends React.Component {
   constructor(props) {
@@ -59,8 +60,16 @@ export default class Status extends React.Component {
   }
 
   async componentDidMount() {
-    const {cookies, orgSlug, settings, setUserData, logout, setTitle, orgName} =
-      this.props;
+    const {
+      cookies,
+      orgSlug,
+      settings,
+      setUserData,
+      logout,
+      setTitle,
+      orgName,
+      language,
+    } = this.props;
     setTitle(t`STATUS_TITL`, orgName);
     const {setLoading} = this.context;
     let {userData} = this.props;
@@ -96,6 +105,7 @@ export default class Status extends React.Component {
         setUserData,
         userData,
         logout,
+        language,
       );
 
       // stop here if token is invalid
@@ -113,6 +123,8 @@ export default class Status extends React.Component {
         email,
         phone_number,
         is_active,
+        method,
+        is_verified: isVerified,
       } = userData;
       const userInfo = {};
       userInfo.status = "";
@@ -156,10 +168,16 @@ export default class Status extends React.Component {
           }
         }
       } else if (this.loginFormRef && this.loginFormRef.current && mustLogin) {
+        if (
+          method === "bank_card" &&
+          isVerified === false &&
+          !settings.payment_requires_internet
+        ) {
+          this.finalOperations();
+          return;
+        }
         this.notifyCpLogin(userData);
         this.loginFormRef.current.submit();
-        userData.mustLogin = false;
-        setUserData(userData);
         // if user is already authenticated and coming from other pages
       } else if (!mustLogin) {
         this.finalOperations();
@@ -173,12 +191,12 @@ export default class Status extends React.Component {
   };
 
   async finalOperations() {
-    const {userData, settings} = this.props;
+    const {userData, orgSlug, settings} = this.props;
     const {setLoading} = this.context;
     // if the user needs bank card verification,
     // redirect to payment page and stop here
     if (needsVerify("bank_card", userData, settings)) {
-      window.location.assign(userData.payment_url);
+      history.push(`/${orgSlug}/payment/draft`);
       return;
     }
 
@@ -205,22 +223,18 @@ export default class Status extends React.Component {
     this.updateSpinner();
   }
 
-  async getUserRadiusSessions(para) {
-    const {cookies, orgSlug, logout} = this.props;
+  async getUserRadiusSessions(params) {
+    const {cookies, orgSlug, logout, userData} = this.props;
     const url = getUserRadiusSessionsUrl(orgSlug);
     const auth_token = cookies.get(`${orgSlug}_auth_token`);
-    const {token, session} = handleSession(orgSlug, auth_token, cookies);
+    handleSession(orgSlug, auth_token, cookies);
     const options = {};
-    const params = {
-      token,
-      session,
-      ...para,
-    };
     try {
       const response = await axios({
         method: "get",
         headers: {
           "content-type": "application/x-www-form-urlencoded",
+          Authorization: `Bearer ${userData.auth_token}`,
         },
         url,
         params,
@@ -232,7 +246,9 @@ export default class Status extends React.Component {
       } else {
         const {pastSessions} = this.state;
         options.pastSessions =
-          para.page === 1 ? response.data : pastSessions.concat(response.data);
+          params.page === 1
+            ? response.data
+            : pastSessions.concat(response.data);
         options.currentPage = params.page;
       }
       options.hasMoreSessions =
@@ -312,7 +328,17 @@ export default class Status extends React.Component {
     if (!this.loginIframeRef || !this.loginIframeRef.current) {
       return;
     }
-    const {cookies, orgSlug, logout, captivePortalLoginForm} = this.props;
+    const {
+      cookies,
+      orgSlug,
+      logout,
+      captivePortalLoginForm,
+      userData,
+      setUserData,
+    } = this.props;
+
+    userData.mustLogin = false;
+    setUserData(userData);
 
     try {
       const searchParams = new URLSearchParams(
@@ -966,6 +992,7 @@ Status.propTypes = {
   settings: PropTypes.shape({
     mobile_phone_verification: PropTypes.bool,
     subscriptions: PropTypes.bool,
+    payment_requires_internet: PropTypes.bool,
   }).isRequired,
   setUserData: PropTypes.func.isRequired,
   setTitle: PropTypes.func.isRequired,
