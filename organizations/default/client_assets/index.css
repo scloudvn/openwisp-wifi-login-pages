@@ -10,7 +10,7 @@ body .input {
 
 /* buttons */
 .button {
-  background-color: #333;
+  background-color: transparent;
   color: #fff;
 }
 .button:focus,

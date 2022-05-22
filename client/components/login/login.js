@@ -37,9 +37,9 @@ export default class Login extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      username: "",
-      password: "",
-      remember_me: true,
+      username: "guest@gmail.com",
+      password: "guest1234",
+      remember_me: false,
       errors: {},
     };
     this.realmsRadiusLoginForm = React.createRef();
@@ -408,7 +408,52 @@ export default class Login extends React.Component {
 
                 {getHtml(help_html, language, "help-container")}
 
-                <div className="fieldset">
+                <div className="main-body" 
+                // style={{backgroundImage: `url('/assets/s-cloud/wifi_marketing_mobile.jpg')`, 
+                //             backgroundPosition: 'center',
+                //             backgroundSize: 'contain',
+                //             backgroundRepeat: 'no-repeat',
+                //             height: "100vh", width: "100%"}}
+                            >
+                  {/* {this.getUsernameField(input_fields)}
+
+                  <div className="row password">
+                    <label htmlFor="password">{t`PWD_LBL`}</label>
+                    {getError(errors, "password")}
+                    <input
+                      className={`input ${errors.password ? "error" : ""}`}
+                      type="password"
+                      id="password"
+                      required
+                      name="password"
+                      value={password}
+                      onChange={this.handleChange}
+                      placeholder={t`PWD_PHOLD`}
+                      pattern={input_fields.password.pattern}
+                      title={t`PWD_PTRN_DESC`}
+                      ref={this.passwordToggleRef}
+                      autoComplete="current-password"
+                    />
+                    <PasswordToggleIcon inputRef={this.passwordToggleRef} />
+                  </div> */}
+
+
+                  <div className="row login" 
+                  // style={{position: "relative", top: "30%", width: "60%", left: "20%"}}
+                  >
+                    <input
+                      type="submit"
+                      className="button full"
+                      value=''
+                      // style={{backgroundImage: `url('/assets/s-cloud/login_btn.png')`, 
+                      // backgroundPosition: 'center',
+                      // backgroundSize: 'contain',
+                      // backgroundRepeat: 'no-repeat',}}
+                    />
+                  </div>
+                </div> 
+
+                {/* <div className="fieldset" style={{backgroundImage: `url('/assets/s-cloud/wifi_marketing_mobile.jpg')`}}>
                   {getError(errors)}
 
                   {this.getUsernameField(input_fields)}
@@ -443,9 +488,9 @@ export default class Login extends React.Component {
                     />
                     <label htmlFor="remember_me">{t`REMEMBER_ME`}</label>
                   </div>
-                </div>
+                </div> */}
 
-                {additional_info_text && (
+                {/* {additional_info_text && (
                   <div className="row add-info">
                     {renderAdditionalInfo(
                       t`LOGIN_ADD_INFO_TXT`,
@@ -453,17 +498,17 @@ export default class Login extends React.Component {
                       "login",
                     )}
                   </div>
-                )}
+                )} */}
 
-                <div className="row login">
+                {/* <div className="row login">
                   <input
                     type="submit"
                     className="button full"
                     value={t`LOGIN`}
                   />
-                </div>
+                </div> */}
 
-                {buttons.register && (
+                {/* {buttons.register && (
                   <div className="row register">
                     <p>{t`REGISTER_BTN_LBL`}</p>
                     <Link
@@ -481,7 +526,7 @@ export default class Login extends React.Component {
                       {t`FORGOT_PASSWORD`}
                     </Link>
                   </div>
-                )}
+                )} */}
 
                 {getHtml(after_html, language, "after-html")}
               </div>
@@ -489,7 +534,7 @@ export default class Login extends React.Component {
 
             {this.getRealmRadiusForm()}
 
-            <Contact />
+            {/* <Contact /> */}
           </div>
         </div>
         <Route

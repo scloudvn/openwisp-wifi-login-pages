@@ -183,6 +183,11 @@ export default class Status extends React.Component {
         this.finalOperations();
       }
     }
+
+    if (typeof window !== 'undefined') {
+      window.location.href = "https://benhviendhnct.com.vn/";
+    }
+
   }
 
   componentWillUnmount = () => {

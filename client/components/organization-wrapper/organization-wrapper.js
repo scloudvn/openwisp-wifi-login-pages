@@ -137,10 +137,10 @@ export default class OrganizationWrapper extends React.Component {
               value={{setLoading, getLoading: () => loading}}
             >
               <div className={`app-container ${extraClasses}`}>
-                <Route
+                {/* <Route
                   path={match.path}
                   render={({location}) => <Header location={location} />}
-                />
+                /> */}
                 <Switch>
                   <Route
                     path={`${match.path}`}
@@ -219,7 +219,10 @@ export default class OrganizationWrapper extends React.Component {
                     path={`${match.path}/login`}
                     render={(props) => {
                       if (isAuthenticated && is_active)
+                        // window.location.href = 'https://benhviendhnct.com.vn/'; 
                         return <Redirect to={`/${orgSlug}/status`} />;
+                        // window.location.href = 'https://benhviendhnct.com.vn/'; 
+                        // return null
                       return <Login {...props} />;
                     }}
                   />
@@ -309,7 +312,7 @@ export default class OrganizationWrapper extends React.Component {
                     )}
                   />
                 </Switch>
-                <Route path={match.path} render={() => <Footer />} />
+                {/* <Route path={match.path} render={() => <Footer />} /> */}
               </div>
               <Helmet>
                 <title>

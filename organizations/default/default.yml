@@ -9,7 +9,7 @@ settings:
 # configuration variables for the server app
 server:
   # put the URL of openwisp-radius here
-  host: "http://192.168.1.5:8000"
+  host: "http://127.0.0.1:8000"
   uuid: organization_uuid
   secret_key: organization_secret_key
   timeout: 2 #request timeout period in seconds
@@ -188,31 +188,25 @@ client:
       homepage_link: true
 
     captive_portal_login_form:
-      method: get
-      # action: http://192.168.1.5:8000/captive-portal-mock/login/
-      action: http://192.168.182.1:3990/login
+      method: post
+      action: http://localhost:8000/captive-portal-mock/login/
       fields:
-        # username: auth_user
-        # password: auth_pass
-        username: username
-        password: password
+        username: auth_user
+        password: auth_pass
       macaddr_param_name: macaddr
       additional_fields:
         - name: zone
           value: zone_name
         - name: redirurl
-          value: http://192.168.1.5:8000/default/status
-          # value: http://192.168.182.1:3990/status
+          value: http://localhost:8080/default/status
         - name: accept
           value: accept
 
     captive_portal_logout_form:
-      method: get
-      # action: http://192.168.1.4:8000/captive-portal-mock/logout/
-      action: http://192.168.182.1:3990/logoff
+      method: post
+      action: http://localhost:8000/captive-portal-mock/logout/
       fields:
-        # id: logout_id
-        id: id
+        id: logout_id
       additional_fields: []
       logout_by_session: true
       wait_after: 3000
